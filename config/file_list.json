@@ -1,6 +1,4 @@
 [
-  { "path": "release/com/argon/groovy/resguard_aab/stable/resguard_aab-stable.gradle", "size": "7.96KB", "modified_time": "2024-12-03 19:21:58" }
-,
   { "path": "release/com/argon/groovy/encrypt/stable/encrypt-stable.gradle", "size": "47.39KB", "modified_time": "2024-12-26 18:36:55" }
 ,
   { "path": "release/com/argon/groovy/ads/1.1.4/ads-1.1.4.gradle", "size": "12.84KB", "modified_time": "2024-12-26 18:36:59" }
