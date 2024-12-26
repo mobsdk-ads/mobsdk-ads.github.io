@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.argon.sdk</groupId>
+  <artifactId>mobsdk</artifactId>
+  <versioning>
+    <latest>1.1.3-DEBUG</latest>
+    <release>1.1.3-DEBUG</release>
+    <versions>
+      <version>1.0.0-DEBUG</version>
+      <version>1.0.1-DEBUG</version>
+      <version>1.0.7-DEBUG</version>
+      <version>1.0.8-DEBUG</version>
+      <version>1.1.2-DEBUG</version>
+      <version>1.1.3-DEBUG</version>
+    </versions>
+    <lastUpdated>20241125034447</lastUpdated>
+  </versioning>
+</metadata>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.argon.groovy</groupId>
+  <artifactId>resguard_aab</artifactId>
+  <versioning>
+    <latest>stable</latest>
+    <release>stable</release>
+    <versions>
+      <version>stable</version>
+    </versions>
+    <lastUpdated>20241101080421</lastUpdated>
+  </versioning>
+</metadata>
