@@ -28,7 +28,7 @@ for FILE in $FILES; do
   FILE_SIZE=$(stat -c%s "$FILE" | numfmt --to=iec --format="%.2f" --suffix="B")
   FILE_MOD_TIME=$(stat -c%y "$FILE")
   FILE_MOD_TIME=$(date -d "$FILE_MOD_TIME" +"%Y-%m-%d %H:%M:%S")
-  if [[ "$filename" =~ \.aar$ ]]; then
+  if [[ "${filename##*.}" == "aar" ]]; then
     echo "  { \"path\": \"$FILE\", \"size\": \"$FILE_SIZE\", \"modified_time\": \"$FILE_MOD_TIME\" }" >> $JSON_FILE
   fi
 done
