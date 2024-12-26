@@ -10,7 +10,8 @@ echo "JSON_FILE = $JSON_FILE"
 #FILES=$(git ls-files)
 RELEASE="release/"
 SNAPSHOT="snapshot/"
-FILES=$(find $RELEASE $SNAPSHOT -type f)
+#FILES=$(find $RELEASE $SNAPSHOT -type f)
+FILES=$(find $RELEASE $SNAPSHOT -type f -exec ls -lt {} + | sort -r)
 
 # 开始创建 JSON 文件
 echo "[" > $JSON_FILE
