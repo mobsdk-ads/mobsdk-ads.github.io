@@ -18,17 +18,17 @@ echo "[" > $JSON_FILE
 # 遍历所有文件并写入 JSON
 FIRST=true
 for FILE in $FILES; do
-  if [ "$FIRST" = true ]; then
-    FIRST=false
-  else
-    echo "," >> $JSON_FILE
-  fi
-
-  # 获取文件的大小和修改时间
-  FILE_SIZE=$(stat -c%s "$FILE" | numfmt --to=iec --format="%.2f" --suffix="B")
-  FILE_MOD_TIME=$(stat -c%y "$FILE")
-  FILE_MOD_TIME=$(date -d "$FILE_MOD_TIME" +"%Y-%m-%d %H:%M:%S")
   if [[ "${FILE##*.}" == "aar" ]]; then
+    if [ "$FIRST" = true ]; then
+      FIRST=false
+    else
+      echo "," >> $JSON_FILE
+    fi
+  
+    # 获取文件的大小和修改时间
+    FILE_SIZE=$(stat -c%s "$FILE" | numfmt --to=iec --format="%.2f" --suffix="B")
+    FILE_MOD_TIME=$(stat -c%y "$FILE")
+    FILE_MOD_TIME=$(date -d "$FILE_MOD_TIME" +"%Y-%m-%d %H:%M:%S")
     echo "  { \"path\": \"$FILE\", \"size\": \"$FILE_SIZE\", \"modified_time\": \"$FILE_MOD_TIME\" }" >> $JSON_FILE
   fi
 done
