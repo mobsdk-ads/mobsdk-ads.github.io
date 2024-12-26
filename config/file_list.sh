@@ -18,13 +18,13 @@ echo "[" > $JSON_FILE
 # 遍历所有文件并写入 JSON
 FIRST=true
 for FILE in $FILES; do
-  if [[ "${FILE##*.}" == "aar" ]]; then
+  if [[ "${FILE##*.}" == "aar" ]] || [[ "${FILE##*.}" == "gradle" ]] ; then
     if [ "$FIRST" = true ]; then
       FIRST=false
     else
       echo "," >> $JSON_FILE
     fi
-  
+
     # 获取文件的大小和修改时间
     FILE_SIZE=$(stat -c%s "$FILE" | numfmt --to=iec --format="%.2f" --suffix="B")
     FILE_MOD_TIME=$(stat -c%y "$FILE")
