@@ -15,6 +15,7 @@ FILES_RELEASE=$(find $RELEASE -name *.gradle -o -name *.aar -exec ls -lt {} + | 
 FILES_SNAPSHOT=$(find $SNAPSHOT -name *.gradle -o -name *.aar -exec ls -lt {} + | sort -r)
 #FILES+=("${FILES_SNAPSHOT[@]}")
 FILES=("${FILES_RELEASE[@]}" "${FILES_SNAPSHOT[@]}")
+echo $FILES
 # 开始创建 JSON 文件
 echo "[" > $JSON_FILE
 
