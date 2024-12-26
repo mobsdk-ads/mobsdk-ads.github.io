@@ -1,3 +1,67 @@
 [
+  { "path": "release/com/argon/groovy/resguard_aab/stable/resguard_aab-stable.gradle", "size": "7.96KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/encrypt/stable/encrypt-stable.gradle", "size": "47.39KB", "modified_time": "2024-12-26 18:36:55" }
+,
+  { "path": "release/com/argon/groovy/ads/1.1.4/ads-1.1.4.gradle", "size": "12.84KB", "modified_time": "2024-12-26 18:36:59" }
+,
+  { "path": "release/com/argon/groovy/ads/1.1.3/ads-1.1.3.gradle", "size": "11.55KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.1.2/ads-1.1.2.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.1.1/ads-1.1.1.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.1.0/ads-1.1.0.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.9/ads-1.0.9.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.8/ads-1.0.8.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.7/ads-1.0.7.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.6/ads-1.0.6.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.5/ads-1.0.5.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.4/ads-1.0.4.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.3/ads-1.0.3.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.2/ads-1.0.2.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.1/ads-1.0.1.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/groovy/ads/1.0.0/ads-1.0.0.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.1.4/mobsdk-1.1.4.aar", "size": "264.37KB", "modified_time": "2024-12-26 18:36:59" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.1.3/mobsdk-1.1.3.aar", "size": "263.71KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.1.2/mobsdk-1.1.2.aar", "size": "263.71KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.1.1/mobsdk-1.1.1.aar", "size": "262.50KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.1.0/mobsdk-1.1.0.aar", "size": "261.63KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.9/mobsdk-1.0.9.aar", "size": "259.50KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.8/mobsdk-1.0.8.aar", "size": "257.90KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.7/mobsdk-1.0.7.aar", "size": "257.35KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.6/mobsdk-1.0.6.aar", "size": "256.57KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.5/mobsdk-1.0.5.aar", "size": "255.73KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.4/mobsdk-1.0.4.aar", "size": "255.94KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.3/mobsdk-1.0.3.aar", "size": "255.53KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.2/mobsdk-1.0.2.aar", "size": "253.60KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.1/mobsdk-1.0.1.aar", "size": "253.65KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.0.0/mobsdk-1.0.0.aar", "size": "253.31KB", "modified_time": "2024-12-03 19:21:58" }
+,
   { "path": "snapshot/com/argon/sdk/mobsdk/1.1.3-DEBUG/mobsdk-1.1.3-DEBUG.aar", "size": "264.97KB", "modified_time": "2024-12-03 19:21:58" }
 ]
