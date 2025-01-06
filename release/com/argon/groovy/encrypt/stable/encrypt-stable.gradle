@@ -54,7 +54,8 @@ def mavenUrls = [
         "https://cboost.jfrog.io/artifactory/chartboost-ads/",
         "https://cboost.jfrog.io/artifactory/chartboost-mediation",
         "https://jfrog.anythinktech.com/artifactory/overseas_sdk",
-        "https://artifactory.bidmachine.io/bidmachine"
+        "https://artifactory.bidmachine.io/bidmachine",
+        "https://verve.jfrog.io/artifactory/verve-gradle-release"
 ]
 try {
     def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
