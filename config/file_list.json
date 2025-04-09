@@ -1,7 +1,7 @@
 [
   { "path": "release/com/argon/groovy/encrypt/stable/encrypt-stable.gradle", "size": "47.46KB", "modified_time": "2025-01-06 11:21:33" }
 ,
-  { "path": "release/com/argon/groovy/ads/1.1.8/ads-1.1.8.gradle", "size": "12.09KB", "modified_time": "2025-04-09 11:48:04" }
+  { "path": "release/com/argon/groovy/ads/1.1.8/ads-1.1.8.gradle", "size": "12.09KB", "modified_time": "2025-04-09 11:52:17" }
 ,
   { "path": "release/com/argon/groovy/ads/1.1.7/ads-1.1.7.gradle", "size": "12.09KB", "modified_time": "2025-04-08 10:06:25" }
 ,
@@ -38,6 +38,8 @@
   { "path": "release/com/argon/groovy/ads/1.0.1/ads-1.0.1.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
 ,
   { "path": "release/com/argon/groovy/ads/1.0.0/ads-1.0.0.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
+,
+  { "path": "release/com/argon/sdk/mobsdk/1.1.8/mobsdk-1.1.8.aar", "size": "241.34KB", "modified_time": "2025-04-09 12:32:08" }
 ,
   { "path": "release/com/argon/sdk/mobsdk/1.1.7/mobsdk-1.1.7.aar", "size": "241.21KB", "modified_time": "2025-04-08 15:55:47" }
 ,
