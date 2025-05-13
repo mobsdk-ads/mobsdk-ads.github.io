@@ -1,6 +1,8 @@
 [
   { "path": "release/com/argon/groovy/encrypt/stable/encrypt-stable.gradle", "size": "47.46KB", "modified_time": "2025-01-06 11:21:33" }
 ,
+  { "path": "release/com/argon/groovy/ads/1.2.1/ads-1.2.1.gradle", "size": "12.09KB", "modified_time": "2025-05-13 15:00:46" }
+,
   { "path": "release/com/argon/groovy/ads/1.2.0/ads-1.2.0.gradle", "size": "12.09KB", "modified_time": "2025-05-07 15:13:39" }
 ,
   { "path": "release/com/argon/groovy/ads/1.1.9/ads-1.1.9.gradle", "size": "12.09KB", "modified_time": "2025-04-18 17:27:01" }
