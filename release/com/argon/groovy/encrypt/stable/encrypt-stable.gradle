@@ -1,9 +1,15 @@
 import javax.crypto.Cipher
+import javax.crypto.CipherInputStream
+import javax.crypto.CipherOutputStream
+import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -46,16 +52,16 @@ def checkMavenUrl(urlString) {
 def mavenUrls = [
         "https://repo1.maven.org/maven2",
         "https://dl.google.com/dl/android/maven2",
-        "https://android-sdk.is.com/",
-        "https://artifact.bytedance.com/repository/pangle",
-        "https://artifacts.applovin.com/android",
-        "https://artifactory.verizonmedia.com/artifactory/maven",
         "https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea",
         "https://cboost.jfrog.io/artifactory/chartboost-ads/",
         "https://cboost.jfrog.io/artifactory/chartboost-mediation",
         "https://jfrog.anythinktech.com/artifactory/overseas_sdk",
         "https://artifactory.bidmachine.io/bidmachine",
-        "https://verve.jfrog.io/artifactory/verve-gradle-release"
+        "https://verve.jfrog.io/artifactory/verve-gradle-release",
+        "https://android-sdk.is.com/",
+        "https://artifact.bytedance.com/repository/pangle",
+        "https://artifacts.applovin.com/android",
+        "https://artifactory.verizonmedia.com/artifactory/maven",
 ]
 try {
     def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
@@ -419,14 +425,14 @@ def getAssetsOutDir(flavor, appId) {
  */
 def adFileGenerateByUser(flavorName) {
     def appId = getApplicationId(flavorName)
-    def pkgnameMd5 = Aes.string2MD5(appId)
+    def pkgnameMd5 = Utils.string2MD5(appId)
     def adConfigName = "mob" + pkgnameMd5.substring(0, 8) + getSuffix()
     println "generateAdFileName : " + adConfigName
     println "generateOriginName : " + "app_mob_data.cfg"
 }
 
 def getConfigNameList(appId) {
-    def pkgnameMd5 = Aes.string2MD5(appId)
+    def pkgnameMd5 = Utils.string2MD5(appId)
     def adConfigNameList = ["mob" + pkgnameMd5.substring(0, 8), "app_mob_data"]
     def adSuffixNameList = [getSuffix(), getSuffixJson()]
     def adConfigNameWithSuffixList = []
@@ -444,7 +450,7 @@ def getConfigNameList(appId) {
  * @return
  */
 def getAdConfigFile(List<File> assetsDirList, appId) {
-    def pkgnameMd5 = Aes.string2MD5(appId)
+    def pkgnameMd5 = Utils.string2MD5(appId)
     def adConfigNameList = ["mob" + pkgnameMd5.substring(0, 8), "app_mob_data"]
     def adSuffixNameList = [getSuffix(), getSuffixJson()]
     def adConfigFileList = [:]
@@ -555,6 +561,7 @@ def generateSignMd5(flavor, assetDir) {
 def encryptAssetsFiles(flavor) {
     println ""
     def secret = ext != null && ext.has("secret") ? ext["secret"] : "123456789"
+    def useAesNew = ext != null && ext.has("aesNew") ? ext["aesNew"] : false
     def appId = getApplicationId(flavor)
     def assetDirList = getAssetsOutDir(flavor, appId)
     if (assetDirList == null || assetDirList.isEmpty()) {
@@ -568,7 +575,7 @@ def encryptAssetsFiles(flavor) {
         adFileMap.each { map ->
             File adFile = map.key
             def adFilePath = adFile.getAbsolutePath()
-            def needEncrypt = Aes.isJson(adFilePath)
+            def needEncrypt = Utils.isJson(adFilePath)
             def assetDir = map.value
             def fullFilePath = adFile.getAbsolutePath()
             def shortFilePath = fullFilePath.replace(assetDir, "")
@@ -578,7 +585,11 @@ def encryptAssetsFiles(flavor) {
             println "> Task :${project.name}:encryptAssetsFile [${shortFilePath}] need encrypt : $needEncrypt"
             if (needEncrypt) {
                 try {
-                    Aes.encryptFile(adFilePath, secret)
+                    if (useAesNew) {
+                        AesNew.encryptFile(adFilePath, secret)
+                    } else {
+                        Aes.encryptFile(adFilePath, secret)
+                    }
                     Global.sEncryptFileList.add(assetDir)
                     Global.sEncryptFileList.add(shortFilePath)
                     println "> Task :${project.name}:encryptAssetsFile [$shortFilePath] encrypt successfully"
@@ -597,7 +608,7 @@ def encryptAssetsFiles(flavor) {
         mainTree.each { map ->
             def file = map.key
             def filePath = file.getAbsolutePath()
-            def needEncrypt = Aes.isJson(filePath)
+            def needEncrypt = Utils.isJson(filePath)
             def assetDir = map.value
             def fullFilePath = file.getAbsolutePath()
             String shortFilePath = fullFilePath.replace(assetDir, "")
@@ -607,7 +618,11 @@ def encryptAssetsFiles(flavor) {
             println "> Task :${project.name}:encryptAssetsFile [${shortFilePath}] need encrypt : $needEncrypt"
             if (needEncrypt) {
                 try {
-                    Aes.encryptFile(filePath, secret)
+                    if (useAesNew) {
+                        AesNew.encryptFile(filePath, secret)
+                    } else {
+                        Aes.encryptFile(filePath, secret)
+                    }
                     Global.sEncryptFileList.add(assetDir)
                     Global.sEncryptFileList.add(shortFilePath)
                     println "> Task :app:encryptAssetsFile [${shortFilePath}] encrypt successfully"
@@ -1230,6 +1245,298 @@ class Aes {
         return false;
     }
 
+    static void encryptFile(String originFile, String secret) {
+        try {
+            String encrypt = encryptPublic(secret, readFromFile(new File(originFile))); //加密
+            writeToFile(new File(originFile), encrypt);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+}
+
+class AesNew {
+    private static final int IV_SIZE = 12; // GCM 推荐长度
+    private static final int TAG_LENGTH = 128;
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+    private static final String ALGORITHM = "AES";
+
+    private static void appendHex(StringBuffer paramStringBuffer, byte paramByte) {
+        paramStringBuffer.append("0123456789ABCDEF".charAt(0xF & paramByte >> 4))
+                .append("0123456789ABCDEF".charAt(paramByte & 0xF));
+    }
+
+    public static String decrypt(String key, String content) {
+        try {
+            return new String(decrypt(getRawKey(key.getBytes(StandardCharsets.UTF_8)), toByte(content)));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static byte[] decrypt(byte[] key, byte[] content) throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(content);
+        byte[] iv = new byte[IV_SIZE];
+        buffer.get(iv);
+        byte[] cipherText = new byte[buffer.remaining()];
+        buffer.get(cipherText);
+
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        SecretKeySpec keySpec = new SecretKeySpec(key, ALGORITHM);
+        GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH, iv);
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
+        return cipher.doFinal(cipherText);
+    }
+
+    public static String decryptRaw(String key, byte[] content) {
+        try {
+            return new String(decrypt(getRawKey(key.getBytes(StandardCharsets.UTF_8)), content));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    static String encrypt(String key, String content) {
+        try {
+            byte[] result = encrypt(getRawKey(key.getBytes(StandardCharsets.UTF_8)), content.getBytes(StandardCharsets.UTF_8));
+            return toHex(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    static byte[] encrypt(byte[] key, byte[] content) throws Exception {
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        byte[] iv = new byte[IV_SIZE];
+        new SecureRandom().nextBytes(iv);
+
+        SecretKeySpec keySpec = new SecretKeySpec(key, ALGORITHM);
+        GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+
+        byte[] cipherText = cipher.doFinal(content);
+
+        ByteBuffer buffer = ByteBuffer.allocate(iv.length + cipherText.length);
+        buffer.put(iv);
+        buffer.put(cipherText);
+        return buffer.array();
+    }
+
+    public static byte[] encryptRaw(String key, String content) {
+        try {
+            return encrypt(getRawKey(key.getBytes(StandardCharsets.UTF_8)), content.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static String fromHex(String content) {
+        return new String(toByte(content));
+    }
+
+    private static byte[] getRawKey(byte[] key) {
+        byte[] keyByte = new byte[16];
+        for (int i = 0; i < keyByte.length; i++) {
+            keyByte[i] = (i < key.length) ? key[i] : 0;
+        }
+        return keyByte;
+    }
+
+    public static byte[] toByte(String content) {
+        int len = content.length() / 2;
+        byte[] result = new byte[len];
+        for (int i = 0; i < len; i++) {
+            result[i] = (byte) Integer.parseInt(content.substring(i * 2, i * 2 + 2), 16);
+        }
+        return result;
+    }
+
+    public static String toHex(String content) {
+        return toHex(content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static String toHex(byte[] content) {
+        if (content == null) return "";
+        StringBuffer sb = new StringBuffer(2 * content.length);
+        for (byte b : content) appendHex(sb, b);
+        return sb.toString();
+    }
+
+    public static void aesEncryptFile(String sourceFile, String encryptFile, byte[] password) throws Exception {
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        byte[] iv = new byte[IV_SIZE];
+        new SecureRandom().nextBytes(iv);
+        SecretKeySpec keySpec = new SecretKeySpec(password, ALGORITHM);
+        GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+
+        try (FileInputStream inputStream = new FileInputStream(sourceFile);
+             FileOutputStream outputStream = new FileOutputStream(encryptFile)) {
+            outputStream.write(iv);
+            try (CipherOutputStream cos = new CipherOutputStream(outputStream, cipher)) {
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = inputStream.read(buffer)) != -1) {
+                    cos.write(buffer, 0, len);
+                }
+            }
+        }
+    }
+
+    public static void aesDecryptFile(String encryptFile, String decryptFile, byte[] password) throws Exception {
+        try (FileInputStream fis = new FileInputStream(encryptFile)) {
+            byte[] iv = new byte[IV_SIZE];
+            fis.read(iv);
+
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            SecretKeySpec keySpec = new SecretKeySpec(password, ALGORITHM);
+            GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH, iv);
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
+
+            try (FileOutputStream fos = new FileOutputStream(decryptFile);
+                 CipherInputStream cis = new CipherInputStream(fis, cipher)) {
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = cis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, len);
+                }
+            }
+        }
+    }
+
+    private static void usage() {
+        System.out.println("Usage: java -jar aes.jar <-k key> [-e|-d] [-b] [-i input] [-o output] [-s str]");
+    }
+
+    private static boolean isEmpty(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+
+    private static void encryptOrDecryptString(String originString, boolean encrypt, String key) {
+        String outputString = encrypt ? encrypt(key, originString) : decrypt(key, originString);
+        System.out.println(outputString);
+    }
+
+    private static void encryptOrDecryptStringFile(String inputFile, String outputFile, boolean encrypt, String key) {
+        try {
+            String originString = readFromFile(new File(inputFile));
+            if (isEmpty(originString)) {
+                System.out.println("[error] Unable to read input file");
+                return;
+            }
+            String outputString = encrypt ? encrypt(key, originString) : decrypt(key, originString);
+            if (!isEmpty(outputFile)) {
+                writeToFile(new File(outputFile), outputString);
+            } else {
+                System.out.println(outputString);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void encryptOrDecryptBinaryFile(String inputFile, String outputFile, boolean encrypt, String key) {
+        try {
+            if (encrypt) {
+                aesEncryptFile(inputFile, outputFile, getRawKey(key.getBytes(StandardCharsets.UTF_8)));
+            } else {
+                aesDecryptFile(inputFile, outputFile, getRawKey(key.getBytes(StandardCharsets.UTF_8)));
+            }
+        } catch (Exception e) {
+            System.out.println("[error] Failed binary file processing: " + e);
+        }
+    }
+
+    public static void main(String[] args) {
+        String key = null, input = null, output = null, inputstr = null;
+        boolean encrypt = true, useBinary = false;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "-k":
+                    key = args[++i];
+                    break;
+                case "-i":
+                    input = args[++i];
+                    break;
+                case "-o":
+                    output = args[++i];
+                    break;
+                case "-e":
+                    encrypt = true;
+                    break;
+                case "-d":
+                    encrypt = false;
+                    break;
+                case "-s":
+                    inputstr = args[++i];
+                    break;
+                case "-b":
+                    useBinary = true;
+                    break;
+            }
+        }
+        if (isEmpty(key)) {
+            usage();
+            return;
+        }
+        if (!isEmpty(inputstr)) {
+            encryptOrDecryptString(inputstr, encrypt, key);
+        } else if (useBinary) {
+            encryptOrDecryptBinaryFile(input, output, encrypt, key);
+        } else {
+            encryptOrDecryptStringFile(input, output, encrypt, key);
+        }
+    }
+
+    private static String readFromFile(File f) {
+        if (!f.exists()) return null;
+        try (FileInputStream fis = new FileInputStream(f)) {
+            byte[] buf = new byte[4096];
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            int read;
+            while ((read = fis.read(buf)) > 0) {
+                baos.write(buf, 0, read);
+            }
+            return baos.toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void writeToFile(File f, String out) {
+        try (FileOutputStream fos = new FileOutputStream(f)) {
+            fos.write(out.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String encryptPublic(String key, String content) {
+        try {
+            byte[] result = encrypt(getRawKey(key.getBytes()),
+                    content.getBytes());
+            return toHex(result);
+        } catch (Exception localException) {
+        }
+        return null;
+    }
+
+    public static void encryptFile(String originFile, String secret) {
+        try {
+            String encrypt = encryptPublic(secret, readFromFile(new File(originFile))); //加密
+            writeToFile(new File(originFile), encrypt);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class Utils {
     static String readFromStream(InputStream is) {
         if (is == null) {
             return null;
@@ -1271,15 +1578,6 @@ class Aes {
             e.printStackTrace()
         }
         return false
-    }
-
-    static void encryptFile(String originFile, String secret) {
-        try {
-            String encrypt = encryptPublic(secret, readFromFile(new File(originFile))); //加密
-            writeToFile(new File(originFile), encrypt);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     static String byte2MD5(byte[] byteArray) {
