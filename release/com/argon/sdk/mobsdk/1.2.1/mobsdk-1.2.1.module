@@ -35,11 +35,11 @@
         {
           "name": "mobsdk-1.2.1.aar",
           "url": "mobsdk-1.2.1.aar",
-          "size": 247504,
-          "sha512": "2711e7ab468bb4229224d7f41e8ddcd99b22867dacfd9e08ebc98d71ea4191de413cf96e482b01e02509af4466fdb4427a3f25bb3a16e4f534bf116be3ff718a",
-          "sha256": "64d568dd183468d20a76ac951e475e97389aeeabfbf797c374e7f8b0057dfdfc",
-          "sha1": "bb95c7bdf6214f1186a97e13e256c8daf314336d",
-          "md5": "b28cb2e292b9e1a15aceb767b8875906"
+          "size": 247584,
+          "sha512": "dd42f06ff222ccfc8ded8931fa8e9f0a896ac182cafd2b8c7fb58abfb3d8f5bdcbf28065a4361342f83a5056174b45eee659da0fe10461d798fe255890cd0e28",
+          "sha256": "1adec059acdac49d99c95a0e6346787c4df11746462468933099adf29c1e9e39",
+          "sha1": "f0b02bd3e2d86a5cd98fcbb741660caf28c37853",
+          "md5": "d61b75b3a35b3998cd829122c31d5948"
         }
       ]
     },
@@ -242,11 +242,11 @@
         {
           "name": "mobsdk-1.2.1.aar",
           "url": "mobsdk-1.2.1.aar",
-          "size": 247504,
-          "sha512": "2711e7ab468bb4229224d7f41e8ddcd99b22867dacfd9e08ebc98d71ea4191de413cf96e482b01e02509af4466fdb4427a3f25bb3a16e4f534bf116be3ff718a",
-          "sha256": "64d568dd183468d20a76ac951e475e97389aeeabfbf797c374e7f8b0057dfdfc",
-          "sha1": "bb95c7bdf6214f1186a97e13e256c8daf314336d",
-          "md5": "b28cb2e292b9e1a15aceb767b8875906"
+          "size": 247584,
+          "sha512": "dd42f06ff222ccfc8ded8931fa8e9f0a896ac182cafd2b8c7fb58abfb3d8f5bdcbf28065a4361342f83a5056174b45eee659da0fe10461d798fe255890cd0e28",
+          "sha256": "1adec059acdac49d99c95a0e6346787c4df11746462468933099adf29c1e9e39",
+          "sha1": "f0b02bd3e2d86a5cd98fcbb741660caf28c37853",
+          "md5": "d61b75b3a35b3998cd829122c31d5948"
         }
       ]
     },
