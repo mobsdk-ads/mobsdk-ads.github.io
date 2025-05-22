@@ -190,6 +190,38 @@ project.afterEvaluate {
         }
     })
     aab2apkTask.setGroup("mobsdk")
+
+    String taskName = String.format("newEncryptString")
+    def taskObject = project.tasks.create(taskName, {
+        doLast {
+            newEncryptStringTask()
+        }
+    })
+    taskObject.setGroup("mobsdk")
+
+    taskName = String.format("newDecryptString")
+    taskObject = project.tasks.create(taskName, {
+        doLast {
+            newDecryptStringTask()
+        }
+    })
+    taskObject.setGroup("mobsdk")
+
+    taskName = String.format("oldEncryptString")
+    taskObject = project.tasks.create(taskName, {
+        doLast {
+            oldEncryptStringTask()
+        }
+    })
+    taskObject.setGroup("mobsdk")
+
+    taskName = String.format("oldDecryptString")
+    taskObject = project.tasks.create(taskName, {
+        doLast {
+            oldDecryptStringTask()
+        }
+    })
+    taskObject.setGroup("mobsdk")
 }
 
 def firebaseDebugViewByUser(flavor) {
@@ -1083,7 +1115,45 @@ def getReleaseSignConfig(flavor) {
     return signConfig
 }
 //////////////////////////////////////////////////////////////////////////////////////////
+def newEncryptStringTask() {
+    println "【新加密】请输入密钥和内容（回车）: "
+    def reader = new BufferedReader(new InputStreamReader(System.in))
+    def key = reader.readLine()
+    def input = reader.readLine()
+    println "[$key][$input]"
+    String output = AesNew.encryptPublic(key, input)
+    println "加密结果: [$output]"
+}
 
+def newDecryptStringTask() {
+    println "【新加密】请输入密钥和内容（回车）: "
+    def reader = new BufferedReader(new InputStreamReader(System.in))
+    def key = reader.readLine()
+    def input = reader.readLine()
+    println "[$key][$input]"
+    String output = AesNew.decrypt(key, input)
+    println "解密结果: [$output]"
+}
+def oldEncryptStringTask() {
+    println "【旧加密】请输入密钥和内容（回车）: "
+    def reader = new BufferedReader(new InputStreamReader(System.in))
+    def key = reader.readLine()
+    def input = reader.readLine()
+    println "[$key][$input]"
+    String output = Aes.encryptPublic(key, input)
+    println "加密结果: [$output]"
+}
+
+def oldDecryptStringTask() {
+    println "【旧加密】请输入密钥和内容（回车）: "
+    def reader = new BufferedReader(new InputStreamReader(System.in))
+    def key = reader.readLine()
+    def input = reader.readLine()
+    println "[$key][$input]"
+    String output = Aes.decrypt(key, input)
+    println "解密结果: [$output]"
+}
+//////////////////////////////////////////////////////////////////////////////////////////
 class Aes {
     private static void appendHex(StringBuffer paramStringBuffer, byte paramByte) {
         paramStringBuffer.append(
