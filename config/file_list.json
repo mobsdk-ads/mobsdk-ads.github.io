@@ -47,6 +47,8 @@
 ,
   { "path": "release/com/argon/groovy/ads/1.0.0/ads-1.0.0.gradle", "size": "11.21KB", "modified_time": "2024-12-03 19:21:58" }
 ,
+  { "path": "release/com/argon/sdk/mobsdk/1.2.3/mobsdk-1.2.3.aar", "size": "242.33KB", "modified_time": "2025-06-13 14:23:53" }
+,
   { "path": "release/com/argon/sdk/mobsdk/1.2.2/mobsdk-1.2.2.aar", "size": "242.62KB", "modified_time": "2025-05-19 18:19:12" }
 ,
   { "path": "release/com/argon/sdk/mobsdk/1.2.1/mobsdk-1.2.1.aar", "size": "241.79KB", "modified_time": "2025-05-15 17:08:47" }
