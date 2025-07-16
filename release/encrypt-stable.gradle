@@ -93,10 +93,18 @@ project.afterEvaluate {
                 }
             }
 
-            def packageReleaseBungleTask = project.tasks.findByName(String.format("sign%sReleaseBundle", productFlavor))
-            if (packageReleaseBungleTask != null) {
-                packageReleaseBungleTask.doLast {
-                    removeProguardMap(flavor.name)
+            def packageReleaseBundle = project.tasks.findByName(String.format("package%sReleaseBundle", productFlavor))
+            if (packageReleaseBundle != null) {
+                packageReleaseBundle.doFirst {
+                    removeSpecialProguard(flavor.name)
+                }
+            }
+
+            def signReleaseBungleTask = project.tasks.findByName(String.format("sign%sReleaseBundle", productFlavor))
+            if (signReleaseBungleTask != null) {
+                signReleaseBungleTask.doLast {
+                    removeBundleMetaData(flavor.name)
+                    listBundleMetaDataFiles(flavor.name)
                 }
             }
 
@@ -138,10 +146,18 @@ project.afterEvaluate {
             }
         }
 
-        def packageReleaseBungleTask = project.tasks.findByName("signReleaseBundle")
-        if (packageReleaseBungleTask != null) {
-            packageReleaseBungleTask.doLast {
-                removeProguardMap(null)
+        def packageReleaseBundle = project.tasks.findByName("packageReleaseBundle")
+        if (packageReleaseBundle != null) {
+            packageReleaseBundle.doFirst {
+                removeSpecialProguard(null)
+            }
+        }
+
+        def signReleaseBundle = project.tasks.findByName("signReleaseBundle")
+        if (signReleaseBundle != null) {
+            signReleaseBundle.doLast {
+                removeBundleMetaData(null)
+                listBundleMetaDataFiles(null)
             }
         }
 
@@ -278,7 +294,7 @@ def getAaptFile() {
         }
         sdkDir = System.getenv("ANDROID_HOME")
     }
-    println "> Task :${project.name}:getAaptFile sdkDir : " + sdkDir
+    // println "> Task :${project.name}:getAaptFile sdkDir : " + sdkDir
     if (sdkDir == null) {
         println "> Task :${project.name}:getAaptFile sdkDir == null"
         return null
@@ -309,39 +325,8 @@ def getAaptFile() {
         }
     }
     def aaptFile = buildToolDir + File.separator + buildToolVersionDir + File.separator + "aapt" + exe
-    println "> Task :${project.name}:getAaptFile aaptFile : " + aaptFile
+    // println "> Task :${project.name}:getAaptFile aaptFile : " + aaptFile
     return aaptFile
-}
-
-def removeProguardMap(flavor) {
-    if (ext.has("removeProguardMap") && ext["removeProguardMap"] == true) {
-        def flavorName = flavor != null ? flavor : ""
-        def outputFile = null
-        def outputDir = getBuildDir()
-        outputDir = new File(outputDir, "outputs")
-        outputDir = new File(outputDir, "bundle")
-        if (flavor != null) {
-            outputDir = new File(outputDir, flavorName + "Release")
-        } else {
-            outputDir = new File(outputDir, "release")
-        }
-        File[] outputFileList = outputDir.listFiles()
-        if (outputFileList != null && outputFileList.length > 0) {
-            outputFile = outputFileList[0]
-        }
-        println "> Task :${project.name}:removeProguardMap flavorName : " + flavorName
-        println "> Task :${project.name}:removeProguardMap outputDir : " + outputDir
-        println "> Task :${project.name}:removeProguardMap outputFile : " + outputFile
-        println "> Task :${project.name}:removeProguardMap outputFiles : " + outputDir.list()
-        if (outputFile != null && outputFile.exists()) {
-            def aaptFile = getAaptFile()
-            if (aaptFile != null && new File(aaptFile).exists()) {
-                def cmdString = aaptFile + " r " + outputFile + " BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map"
-                def result = cmdString.execute().text
-                println "> Task :${project.name}:removeProguardMap execute remove proguard map file : " + result
-            }
-        }
-    }
 }
 
 def getSuffix() {
@@ -668,6 +653,239 @@ def encryptAssetsFiles(flavor) {
     }
 }
 
+/**
+ * 使用 jarsigner 对 .aab 文件进行签名
+ *
+ * @param aabFilePath 要签名的 .aab 文件路径
+ * @param keystorePath keystore 文件路径
+ * @param storePassword keystore 密码
+ * @param keyAlias key 的别名
+ * @param keyPassword key 的密码（可与 keystore 密码相同）
+ */
+def signAabWithJarsigner(String aabFilePath, String keystorePath, String storePassword, String keyAlias, String keyPassword) {
+    def jarsigner = new File("${System.getenv('JAVA_HOME') ?: 'java'}/bin/jarsigner").getCanonicalFile()
+    println "> Task :${project.name}:signAabWithJarsigner jarsigner : $jarsigner"
+    if (!new File(jarsigner).exists()) {
+        throw new GradleException("签名失败:Jarsigner File is not exists")
+    }
+    def cmd = [
+            jarsigner,
+            "-verbose",
+            "-sigalg", "SHA256withRSA",
+            "-digestalg", "SHA-256",
+            "-keystore", keystorePath,
+            "-storepass", storePassword,
+            "-keypass", keyPassword,
+            aabFilePath,
+            keyAlias
+    ]
+
+    println "> Task :${project.name}:signAabWithJarsigner 执行签名命令 : ${cmd.join(' ')}"
+    def process = cmd.execute()
+    def output = new StringBuffer()
+    def error = new StringBuffer()
+    process.consumeProcessOutput(output, error)
+    process.waitFor()
+
+    // println output.toString()
+    if (process.exitValue() != 0) {
+        throw new GradleException("签名失败:\n${error.toString()}")
+    } else {
+        println "> Task :${project.name}:signAabWithJarsigner ✅ 签名成功 : ${aabFilePath}"
+    }
+}
+
+
+def removeBundleMetaData(flavor) {
+    if (ext.has("removeBundleMetaData")) {
+        List<String> bundleMetaData = ext.get("removeBundleMetaData")
+        if (bundleMetaData == null || bundleMetaData.isEmpty()) {
+            return
+        }
+        def flavorName = flavor != null ? flavor : ""
+        def outputFile = null
+        def outputDir = getBuildDir()
+        outputDir = new File(outputDir, "outputs")
+        outputDir = new File(outputDir, "bundle")
+        if (flavor != null) {
+            outputDir = new File(outputDir, flavorName + "Release")
+        } else {
+            outputDir = new File(outputDir, "release")
+        }
+        File[] outputFileList = outputDir.listFiles()
+        if (outputFileList != null && outputFileList.length > 0) {
+            outputFile = outputFileList[0]
+        }
+        println ""
+        println "> Task :${project.name}:removeBundleMetaData [$flavor] flavorName : " + flavorName
+        println "> Task :${project.name}:removeBundleMetaData [$flavor] outputDir : " + outputDir
+        println "> Task :${project.name}:removeBundleMetaData [$flavor] outputFile : " + outputFile
+        println "> Task :${project.name}:removeBundleMetaData [$flavor] outputFiles : " + outputDir.list()
+        if (outputFile != null && outputFile.exists()) {
+            def aaptFile = getAaptFile()
+            if (aaptFile != null && new File(aaptFile).exists()) {
+                println "> Task :${project.name}:removeBundleMetaData [$flavor] aapt file : $aaptFile"
+                def cmdList = ["aapt", "r", outputFile.absolutePath]
+                List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
+                bundleFiles.forEach {
+                    for (name in bundleMetaData) {
+                        if (it.endsWith(name)) {
+                            cmdList.add(it)
+                        }
+                    }
+                }
+                def cmdString = cmdList.join(" ")
+                println "> Task :${project.name}:removeBundleMetaData [$flavor] execute remove bundle metadata cmd : " + cmdString
+                def result = cmdList.execute().text
+                println "> Task :${project.name}:removeBundleMetaData [$flavor] execute remove bundle metadata result : " + result
+                def signConfig = getAab2ApkSignConfig(flavor)
+                if (signConfig == null || !signConfig.containsKey("storeFile")
+                        || !signConfig.containsKey("storePassword")
+                        || !signConfig.containsKey("keyAlias")
+                        || !signConfig.containsKey("keyPassword")) {
+                    println "> Task :${project.name}:removeBundleMetaData [$flavor] signConfig is not completion"
+                    return
+                }
+                def storeFile = signConfig.storeFile
+                def storePassword = signConfig.storePassword
+                def keyAlias = signConfig.keyAlias
+                def keyPassword = signConfig.keyPassword
+                signAabWithJarsigner(outputFile.absolutePath, storeFile.absolutePath, storePassword, keyAlias, keyPassword)
+            }
+        }
+    }
+}
+
+def removeSpecialProguard(flavor) {
+    def blackStringList = null
+    if (ext != null && ext.has("proguardBlackString")) {
+        blackStringList = ext["proguardBlackString"]
+    }
+    if (blackStringList != null && !blackStringList.isEmpty()) {
+        println "> Task :${project.name}:removeSpecialProguard [$flavor]"
+        def flavorName = flavor != null ? flavor : ""
+        def mappingFile = null
+        def mappingBack = null
+        def mappingTemp = null
+        def cleanedFile = null
+        def outputDir = getBuildDir()
+        outputDir = new File(outputDir, "outputs")
+        outputDir = new File(outputDir, "mapping")
+        if (flavor != null) {
+            outputDir = new File(outputDir, flavorName + "Release")
+        } else {
+            outputDir = new File(outputDir, "release")
+        }
+        File[] outputFileList = outputDir.listFiles()
+        if (outputFileList != null && outputFileList.length > 0) {
+            mappingFile = new File(outputDir, "mapping.txt")
+            mappingBack = new File(outputDir, "mapping-back.txt")
+            mappingTemp = new File(outputDir, "mapping-cleaned-temp.txt")
+            cleanedFile = new File(outputDir, "mapping-cleaned.txt")
+        }
+        println "> Task :${project.name}:removeSpecialProguard [$flavor] flavorName : " + flavorName
+        println "> Task :${project.name}:removeSpecialProguard [$flavor] outputDir : " + outputDir
+        println "> Task :${project.name}:removeSpecialProguard [$flavor] outputFile : " + mappingFile
+        println "> Task :${project.name}:removeSpecialProguard [$flavor] outputFiles : " + outputDir.list()
+        if (mappingFile != null && mappingFile.exists()) {
+            println "> Task :${project.name}:removeSpecialProguard [$flavor] start processing $blackStringList"
+            if (mappingBack != null) {
+                if (mappingBack.exists()) {
+                    mappingBack.delete()
+                }
+                Files.copy(mappingFile.toPath(), mappingBack.toPath())
+            }
+            def skip = false
+            def cleanedCount = 0
+
+            def reader = mappingFile.newReader()
+            def writer = mappingTemp.newWriter()
+            def resultWriter = cleanedFile.newWriter()
+            try {
+                reader.eachLine { line ->
+                    if (line.endsWith(":")) {
+                        skip = blackStringList.any { line.contains(it) }
+                    }
+                    if (!skip) {
+                        writer.writeLine(line)
+                    } else {
+                        cleanedCount++
+                        resultWriter.writeLine(line)
+                    }
+                }
+            } finally {
+                reader.close()
+                writer.close()
+                resultWriter.close()
+            }
+
+            mappingFile.delete()
+            mappingTemp.renameTo(mappingFile)
+            println "> Task :${project.name}:removeSpecialProguard [$flavor] process complete count [$cleanedCount]"
+        }
+    }
+}
+
+import java.util.zip.ZipFile
+import java.util.zip.ZipEntry
+
+/**
+ * 列出 zip/aab 文件中指定目录数组下的所有非目录文件路径。
+ *
+ * @param zipPath zip 或 aab 文件路径
+ * @param dirPrefixes 要列出的目录前缀数组，例如 ["BUNDLE-METADATA/", "base/"]
+ * @return 包含所有匹配文件路径的 List<String>
+ */
+def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
+    def entries = []
+
+    ZipFile zipFile = new ZipFile(zipPath)
+    zipFile.entries().each { ZipEntry entry ->
+        if (!entry.isDirectory()) {
+            for (prefix in dirPrefixes) {
+                if (entry.name.startsWith(prefix)) {
+                    entries << entry.name
+                    break  // 找到匹配就跳出for，避免重复添加
+                }
+            }
+        }
+    }
+    zipFile.close()
+    return entries
+}
+
+
+def listBundleMetaDataFiles(flavor) {
+    def flavorName = flavor != null ? flavor : ""
+    def outputFile = null
+    def outputDir = getBuildDir()
+    outputDir = new File(outputDir, "outputs")
+    outputDir = new File(outputDir, "bundle")
+    if (flavor != null) {
+        outputDir = new File(outputDir, flavorName + "Release")
+    } else {
+        outputDir = new File(outputDir, "release")
+    }
+    File[] outputFileList = outputDir.listFiles()
+    if (outputFileList != null && outputFileList.length > 0) {
+        outputFile = outputFileList[0]
+    }
+    println ""
+    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] flavorName : " + flavorName
+    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] outputDir : " + outputDir
+    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] outputFile : " + outputFile
+    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] outputFiles : " + outputDir.list()
+    if (outputFile != null && outputFile.exists()) {
+        def bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/", "META-INF"])
+        if (bundleFiles != null && !bundleFiles.isEmpty()) {
+            println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] >>>"
+            bundleFiles.forEach {
+                println "> Task :>>>> $it"
+            }
+            println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] <<<"
+        }
+    }
+}
 //////////////////////////////////////////////////////////////////////////////////////////
 afterEvaluate {
     try {
@@ -799,7 +1017,7 @@ def transformAab2ApkLocked(productFlavor, aabOutputFileName) {
     def finalBundleFile = outputAabFile
     println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] finalBundleFile : " + finalBundleFile
     if (finalBundleFile == null || !finalBundleFile.exists()) {
-        System.err.println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] finalBundleFile is not exist"
+        println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] finalBundleFile is not exist ###"
         return
     }
     def signConfig = getAab2ApkSignConfig(productFlavor)
@@ -893,14 +1111,17 @@ def executeTransformAab2Apk(signConfig, finalBundleFile, bundleToolPath, flavorN
         if (finalApksFile != null && finalApksFile.exists()) {
             extractFileFromZip(finalApksFile, "universal.apk", finalApkFile)
             println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] finalApkFile : [" + finalApkFile + "]"
+            println ""
             if (finalApkFile.exists()) {
                 finalApksFile.delete()
             }
         } else {
             println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] transform aab to apk failed"
+            println ""
         }
     } catch (Exception e) {
         println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] error : " + e
+        println ""
     }
 }
 

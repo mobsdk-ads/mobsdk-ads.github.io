@@ -1,15 +1,7 @@
 [
-  { "path": "release/com/mobads/sdk/ads/1.3.3/ads-1.3.3.aar", "size": "253.27KB", "modified_time": "2025-07-08 11:51:21" }
+  { "path": "release/encrypt-stable.gradle", "size": "70.03KB", "modified_time": "2025-07-15 20:03:51" }
 ,
-  { "path": "release/com/mobads/sdk/ads/1.3.2/ads-1.3.2.aar", "size": "252.37KB", "modified_time": "2025-07-02 16:18:44" }
+  { "path": "release/1.3.4/ads-1.3.4.gradle", "size": "12.09KB", "modified_time": "2025-07-16 17:46:06" }
 ,
-  { "path": "release/com/mobads/sdk/ads/1.3.1/ads-1.3.1.aar", "size": "252.54KB", "modified_time": "2025-07-02 11:49:57" }
-,
-  { "path": "release/com/mobads/sdk/ads/1.3.0/ads-1.3.0.aar", "size": "250.93KB", "modified_time": "2025-06-27 11:57:44" }
-,
-  { "path": "release/com/mobads/sdk/ads/1.2.6/ads-1.2.6.aar", "size": "250.97KB", "modified_time": "2025-06-26 18:54:34" }
-,
-  { "path": "release/com/mobads/sdk/ads/1.2.5/ads-1.2.5.aar", "size": "250.25KB", "modified_time": "2025-06-26 11:02:57" }
-,
-  { "path": "release/com/mobads/sdk/ads/1.2.4/ads-1.2.4.aar", "size": "242.80KB", "modified_time": "2025-06-18 11:46:13" }
+  { "path": "release/1.3.4/MobSdk_1.3.4-release.aar", "size": "251.15KB", "modified_time": "2025-07-16 17:46:06" }
 ]
