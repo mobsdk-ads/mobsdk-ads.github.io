@@ -13,10 +13,12 @@ SNAPSHOT="snapshot/"
 #FILES=$(find $RELEASE $SNAPSHOT -type f)
 FILES_RELEASE_GRADLE=$(find $RELEASE -name *.gradle -exec ls -t {} + | sort -r)
 FILES_RELEASE=$(find $RELEASE -name *.aar -exec ls -t {} + | sort -r)
+FILES_RELEASE_ALL=$(find $RELEASE -type f -exec ls -t {} + | sort -r)
 #FILES_SNAPSHOT=$(find $SNAPSHOT -name *.aar -exec ls -t {} + | sort -r)
 #FILES+=("${FILES_SNAPSHOT[@]}")
 #FILES=("${FILES_RELEASE[@]}" "${FILES_SNAPSHOT[@]}")
-FILES=$(echo "$FILES_RELEASE_GRADLE" "$FILES_RELEASE")
+#FILES=$(echo "$FILES_RELEASE_GRADLE" "$FILES_RELEASE")
+FILES=$(echo "FILES_RELEASE_ALL")
 # 开始创建 JSON 文件
 echo "[" > $JSON_FILE
 
