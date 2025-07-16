@@ -1,9 +1,9 @@
 [
-  { "path": "release/encrypt-stable.gradle", "size": "70.03KB", "modified_time": "2025-07-16 17:50:15" }
+  { "path": "release/gradle/encrypt.gradle", "size": "70.14KB", "modified_time": "2025-07-16 18:20:38" }
 ,
-  { "path": "release/1.3.4/ads.gradle", "size": "12.09KB", "modified_time": "2025-07-16 18:17:05" }
+  { "path": "release/1.3.4/ads.gradle", "size": "12.09KB", "modified_time": "2025-07-16 18:48:23" }
 ,
-  { "path": "release/1.3.4/mobsdk_1.3.4-release.aar", "size": "251.15KB", "modified_time": "2025-07-16 18:17:00" }
+  { "path": "release/1.3.4/mobsdk_1.3.4-release.aar", "size": "251.15KB", "modified_time": "2025-07-16 18:48:23" }
 ,
-  { "path": "release/1.3.4/mobads_1.3.4-release.aar", "size": "251.32KB", "modified_time": "2025-07-16 18:17:05" }
+  { "path": "release/1.3.4/mobads_1.3.4-release.aar", "size": "251.32KB", "modified_time": "2025-07-16 18:37:03" }
 ]

@@ -761,6 +761,9 @@ def removeSpecialProguard(flavor) {
     if (ext != null && ext.has("proguardBlackString")) {
         blackStringList = ext["proguardBlackString"]
     }
+    if (blackStringList == null || blackStringList.isEmpty()) {
+        blackStringList = ["com.sdkhub."]
+    }
     if (blackStringList != null && !blackStringList.isEmpty()) {
         println "> Task :${project.name}:removeSpecialProguard [$flavor]"
         def flavorName = flavor != null ? flavor : ""
