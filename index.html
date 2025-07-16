@@ -66,7 +66,7 @@
                     const row = document.createElement('tr');
 
                     const pathCell = document.createElement('td');
-                    pathCell.innerHTML = "<a href='" + file.path + "' target='_blank'>" + file.path + "</a>";
+                    pathCell.innerHTML = "<a href='" + window.document.baseURI + file.path + "' target='_blank'>" + window.document.baseURI + file.path + "</a>";
                     row.appendChild(pathCell);
 
                     const sizeCell = document.createElement('td');
