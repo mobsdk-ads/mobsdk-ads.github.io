@@ -18,7 +18,7 @@ FILES_RELEASE_ALL=$(find $RELEASE -type f -exec ls -t {} + | sort -r)
 #FILES+=("${FILES_SNAPSHOT[@]}")
 #FILES=("${FILES_RELEASE[@]}" "${FILES_SNAPSHOT[@]}")
 #FILES=$(echo "$FILES_RELEASE_GRADLE" "$FILES_RELEASE")
-FILES=$(echo "FILES_RELEASE_ALL")
+FILES=$(echo "$FILES_RELEASE_ALL")
 # 开始创建 JSON 文件
 echo "[" > $JSON_FILE
 
