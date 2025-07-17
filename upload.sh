@@ -1,8 +1,15 @@
 #!/bin/bash
 
-echo "Upload script start to execute ..."
-
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "There are file changes (modified, added, or deleted)"
+else
+    echo "No file changes detected"
+    exit 0
+fi
+
+echo "Upload script start to execute ..."
 
 $SCRIPT_DIR/config/file_list.sh
 
@@ -14,11 +21,13 @@ REMOTE_URL=$(git remote get-url origin)
 
 echo "REMOTE_URL = $REMOTE_URL"
 
-echo "WEB_PAGE = https://mobsdk-ads.github.io"
+echo "WEB_PAGE = https://maven-release.bitbucket.io"
 
 BRANCH=$(git branch)
 
 echo "BRANCH = $BRANCH"
+
+git status --porcelain
 
 git add .
 
