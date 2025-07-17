@@ -782,7 +782,7 @@ def removeSpecialProguard(flavor) {
         File[] outputFileList = outputDir.listFiles()
         if (outputFileList != null && outputFileList.length > 0) {
             mappingFile = new File(outputDir, "mapping.txt")
-            mappingBack = new File(outputDir, "mapping-back.txt")
+            mappingBack = new File(outputDir, "mapping-${android.defaultConfig.versionName}.txt")
             mappingTemp = new File(outputDir, "mapping-cleaned-temp.txt")
             cleanedFile = new File(outputDir, "mapping-cleaned.txt")
         }
@@ -798,8 +798,10 @@ def removeSpecialProguard(flavor) {
                 }
                 Files.copy(mappingFile.toPath(), mappingBack.toPath())
             }
-            def skip = false
             def cleanedCount = 0
+            def proguardList = []
+            def isRemove = false
+            def isProguardStart = false
 
             def reader = mappingFile.newReader()
             def writer = mappingTemp.newWriter()
@@ -807,20 +809,44 @@ def removeSpecialProguard(flavor) {
             try {
                 reader.eachLine { line ->
                     if (line.endsWith(":")) {
-                        skip = blackStringList.any { line.contains(it) }
-                    }
-                    if (!skip) {
+                        if (proguardList) {    // 处理上一块
+                            if (isRemove) {
+                                cleanedCount += proguardList.size()
+                                proguardList.each { resultWriter.writeLine(it) }
+                            } else {
+                                proguardList.each { writer.writeLine(it) }
+                            }
+                            proguardList.clear()
+                            isRemove = false
+                        }
+                        // 新块初始化
+                        isProguardStart = true
+                        proguardList.add(line)
                         if (blackStringList.any { line.contains(it) }) {
-                            cleanedCount++
-                            resultWriter.writeLine(line)
+                            isRemove = true
+                        }
+                    } else {
+                        if (isProguardStart) {
+                            proguardList.add(line)
+                            if (blackStringList.any { line.contains(it) }) {
+                                isRemove = true
+                            }
                         } else {
                             writer.writeLine(line)
                         }
-                    } else {
-                        cleanedCount++
-                        resultWriter.writeLine(line)
                     }
                 }
+                // 处理最后一块
+                if (proguardList) {
+                    if (isRemove) {
+                        cleanedCount += proguardList.size()
+                        proguardList.each { resultWriter.writeLine(it) }
+                    } else {
+                        proguardList.each { writer.writeLine(it) }
+                    }
+                }
+                isRemove = false
+                proguardList.clear()
             } finally {
                 reader.close()
                 writer.close()
