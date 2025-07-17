@@ -810,7 +810,12 @@ def removeSpecialProguard(flavor) {
                         skip = blackStringList.any { line.contains(it) }
                     }
                     if (!skip) {
-                        writer.writeLine(line)
+                        if (blackStringList.any { line.contains(it) }) {
+                            cleanedCount++
+                            resultWriter.writeLine(line)
+                        } else {
+                            writer.writeLine(line)
+                        }
                     } else {
                         cleanedCount++
                         resultWriter.writeLine(line)
@@ -1044,7 +1049,7 @@ def transformAab2ApkLocked(productFlavor, aabOutputFileName) {
     println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] bundleToolPath : " + bundleToolPath
     if (!new File(bundleToolPath).exists() || !new File(bundleToolPathCompleteFile).exists()) {
         println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] Downloading " + bundleFileName
-        def bundleToolUrl = "https://maven-release.bitbucket.io/release/com/argon/tools/bundletool/" + bundleFileName
+        def bundleToolUrl = "https://mobsdk-ads.github.io/tools/bundletool/" + bundleFileName
         try {
             downloadFile(bundleToolUrl, bundleToolPath, "> Task :${project.name}:transformAab2Apk [" + flavorName + "] " + bundleFileName)
             new File(bundleToolPathCompleteFile).createNewFile()
