@@ -791,7 +791,7 @@ def removeSpecialProguard(flavor) {
             mappingDir = new File(mappingDir, "release")
         }
         File[] outputFileList = mappingDir.listFiles()
-        def mappingVersionFileName = "mapping-${android.defaultConfig.versionName}.txt"
+        def mappingVersionFileName = "${rootProject.name}_v${android.defaultConfig.versionName}_mapping.txt"
         if (outputFileList != null && outputFileList.length > 0) {
             mappingFile = new File(mappingDir, "mapping.txt")
             mappingBack = new File(aarFileDir, mappingVersionFileName)
