@@ -160,7 +160,7 @@
       const folderMap = new Map();
 
       data.forEach(file => {
-        if (!file.path.endsWith('.aar')) return;
+        if (!file.path.endsWith('-release.aar')) return;
 
         const folderPath = file.path.substring(0, file.path.lastIndexOf('/') + 1);
         if (!folderMap.has(folderPath)) {
@@ -238,7 +238,7 @@
       // 先显示非aar文件和文件夹
       data.forEach(file => {
         // 过滤aar文件（这些放在folderMap里处理）
-        if (file.path.endsWith('.aar')) return;
+        if (file.path.endsWith('-release.aar')) return;
 
         // 过滤某些特殊文件（可选）
         if (file.path === "config/file_list.json" || file.path === "index.html" || file.path === "file_list.sh") {
@@ -271,7 +271,7 @@
           // 找出这个文件夹下的非aar文件（data里路径以该文件夹路径开头的，且不是aar）
           const childFiles = data.filter(f =>
             f.path.startsWith(file.path) &&
-            !f.path.endsWith('.aar') &&
+            !f.path.endsWith('-release.aar') &&
             f.path !== file.path // 排除自己
           );
 
