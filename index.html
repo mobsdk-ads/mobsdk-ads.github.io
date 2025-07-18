@@ -61,6 +61,7 @@
       color: #007acc;
       text-decoration: none;
       word-break: break-all;
+      cursor: pointer;
     }
 
     .copy-btn {
@@ -88,6 +89,21 @@
     .file-icon {
       margin-right: 6px;
       font-size: 16px;
+    }
+
+    /* 文件夹行样式 */
+    tr.folder-row {
+      background-color: #e7f3ff;
+      font-weight: 600;
+    }
+
+	tr.folder-row > td {
+	  padding: 8px 4px;    /* 跟普通单元格一样的padding */
+	  vertical-align: middle;
+	}
+
+    tr.child-row:hover {
+      background-color: #dbeeff;
     }
 
     @media (max-width: 768px) {
@@ -139,62 +155,31 @@
   </table>
 
   <script>
-    function fetchAndRenderTable() {
-      fetch('config/file_list.json?timestamp=' + new Date().getTime())
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          renderTable(data);
-        })
-        .catch(error => {
-          document.getElementById('fileTableBody').innerHTML = 
-            `<tr><td colspan="4" style="text-align:center; color:red;">加载文件失败，请稍后重试。</td></tr>`;
-          console.error('Error fetching the JSON data:', error);
-        });
-    }
-
-    function renderTable(data) {
-      const tableBody = document.getElementById('fileTableBody');
-      const base = window.document.baseURI;
-
-      if (data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px;">暂无文件</td></tr>`;
-        return;
-      }
-
-      tableBody.innerHTML = '';
+    // 按文件夹分组，仅保留.aar文件
+    function groupAarFilesByFolder(data) {
+      const folderMap = new Map();
 
       data.forEach(file => {
-        if (file.path === "config/file_list.json" || file.path === "index.html" || file.path === "file_list.sh") {
-          return;
+        if (!file.path.endsWith('.aar')) return;
+
+        const folderPath = file.path.substring(0, file.path.lastIndexOf('/') + 1);
+        if (!folderMap.has(folderPath)) {
+          folderMap.set(folderPath, []);
         }
-
-        const row = document.createElement('tr');
-        const fullUrl = base + file.path;
-        const icon = getFileIcon(file.path);
-        const isFolder = file.path.endsWith('/');
-
-        row.innerHTML = `
-          <td data-label="文件路径">
-            <span class="file-icon">${icon}</span>
-            <a href="${fullUrl}" target="_blank">${escapeHtml(file.path)}</a>
-          </td>
-          <td data-label="大小">${isFolder ? '-' : file.size}</td>
-          <td data-label="修改时间">${file.modified_time}</td>
-          <td data-label="操作">
-            ${isFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${fullUrl}', this)">复制</button>
-            <span class="copied-label">已复制</span>`}
-          </td>
-        `;
-
-        tableBody.appendChild(row);
+        folderMap.get(folderPath).push(file);
       });
+
+      return folderMap;
     }
 
+    // 转义html，防止XSS
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.appendChild(document.createTextNode(text));
+      return div.innerHTML;
+    }
+
+    // 根据文件后缀返回图标
     function getFileIcon(filePath) {
       const isFolder = filePath.endsWith('/');
       if (isFolder) return '📁';
@@ -220,24 +205,13 @@
         'json': '🔧',
         'xml': '📘',
         'sh': '🐚',
-        'exe': '⚙️'
+        'exe': '⚙️',
+        'aar': '📦'
       };
       return iconMap[ext] || '📦';
     }
 
-    function formatSize(bytes) {
-      if (bytes === 0 || isNaN(bytes)) return '0 B';
-      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(1024));
-      return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement("div");
-      div.appendChild(document.createTextNode(text));
-      return div.innerHTML;
-    }
-
+    // 复制文本并显示“已复制”提示
     function copyToClipboard(text, buttonElement) {
       navigator.clipboard.writeText(text).then(() => {
         const label = buttonElement.nextElementSibling;
@@ -246,6 +220,170 @@
           label.style.visibility = 'hidden';
         }, 1500);
       });
+    }
+
+    // 主渲染函数
+    function renderTable(data) {
+      const tableBody = document.getElementById('fileTableBody');
+      const base = window.document.baseURI;
+      const folderMap = groupAarFilesByFolder(data);
+
+      tableBody.innerHTML = '';
+
+      if (data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px;">暂无文件</td></tr>`;
+        return;
+      }
+
+      // 先显示非aar文件和文件夹
+      data.forEach(file => {
+        // 过滤aar文件（这些放在folderMap里处理）
+        if (file.path.endsWith('.aar')) return;
+
+        // 过滤某些特殊文件（可选）
+        if (file.path === "config/file_list.json" || file.path === "index.html" || file.path === "file_list.sh") {
+          return;
+        }
+
+        const row = document.createElement('tr');
+        const fullUrl = base + file.path;
+        const icon = getFileIcon(file.path);
+        const isFolder = file.path.endsWith('/');
+
+        row.innerHTML = `
+          <td data-label="文件路径">
+            <span class="file-icon">${icon}</span>
+            <a href="${isFolder ? 'javascript:void(0)' : fullUrl}" ${isFolder ? `onclick="toggleFolder('${file.path}')" ` : `target="_blank"`}>${escapeHtml(file.path)}</a>
+          </td>
+          <td data-label="大小">${isFolder ? '-' : file.size}</td>
+          <td data-label="修改时间">${file.modified_time}</td>
+          <td data-label="操作">
+            ${isFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${fullUrl}', this)">复制</button>
+            <span class="copied-label">已复制</span>`}
+          </td>
+        `;
+
+        // 如果是文件夹，后面插入该文件夹内文件（非aar的）并默认隐藏，点击展开
+        if (isFolder) {
+          row.classList.add('folder-row');
+          tableBody.appendChild(row);
+
+          // 找出这个文件夹下的非aar文件（data里路径以该文件夹路径开头的，且不是aar）
+          const childFiles = data.filter(f =>
+            f.path.startsWith(file.path) &&
+            !f.path.endsWith('.aar') &&
+            f.path !== file.path // 排除自己
+          );
+
+          childFiles.forEach(childFile => {
+            const childRow = document.createElement('tr');
+            childRow.classList.add('child-row');
+            childRow.dataset.parent = file.path;
+            childRow.style.display = 'none';
+
+            const childFullUrl = base + childFile.path;
+            const childIcon = getFileIcon(childFile.path);
+            const childIsFolder = childFile.path.endsWith('/');
+
+            childRow.innerHTML = `
+              <td data-label="文件路径">
+                <span class="file-icon">${childIcon}</span>
+                <a href="${childIsFolder ? 'javascript:void(0)' : childFullUrl}" ${childIsFolder ? `onclick="toggleFolder('${childFile.path}')" ` : `target="_blank"`}>${escapeHtml(childFile.path)}</a>
+              </td>
+              <td data-label="大小">${childIsFolder ? '-' : childFile.size}</td>
+              <td data-label="修改时间">${childFile.modified_time}</td>
+              <td data-label="操作">
+                ${childIsFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${childFullUrl}', this)">复制</button>
+                <span class="copied-label">已复制</span>`}
+              </td>
+            `;
+
+            tableBody.appendChild(childRow);
+          });
+
+        } else {
+          // 普通文件直接添加行
+          tableBody.appendChild(row);
+        }
+      });
+
+      // 再显示.aar文件夹行（根据folderMap）
+      folderMap.forEach((files, folderPath) => {
+        // 如果这个文件夹已经被显示过（data中存在且为文件夹行），则不重复显示
+        // 这里简单处理，不判断是否已显示，直接插入.aar文件夹行，可能重复（可根据需要优化）
+        // 你也可以做去重，或者调整显示顺序
+
+        const folderRow = document.createElement('tr');
+        folderRow.classList.add('folder-row');
+        folderRow.dataset.folder = folderPath;
+
+        folderRow.innerHTML = `
+          <td colspan="4">
+            <span class="file-icon">📁</span>
+            <a href="javascript:void(0)" onclick="toggleFolder('${folderPath}')">${escapeHtml(folderPath)}</a>
+          </td>
+        `;
+
+        tableBody.appendChild(folderRow);
+
+        files.forEach(file => {
+          const fileRow = document.createElement('tr');
+          fileRow.classList.add('child-row');
+          fileRow.dataset.parent = folderPath;
+          fileRow.style.display = 'none';
+
+          const fullUrl = base + file.path;
+          const icon = getFileIcon(file.path);
+
+          fileRow.innerHTML = `
+            <td data-label="文件路径">
+              <span class="file-icon">${icon}</span>
+              <a href="${fullUrl}" target="_blank">${escapeHtml(file.path)}</a>
+            </td>
+            <td data-label="大小">${file.size}</td>
+            <td data-label="修改时间">${file.modified_time}</td>
+            <td data-label="操作">
+              <button class="copy-btn" onclick="copyToClipboard('${fullUrl}', this)">复制</button>
+              <span class="copied-label">已复制</span>
+            </td>
+          `;
+
+          tableBody.appendChild(fileRow);
+        });
+      });
+    }
+
+    // 展开或收起文件夹的子行
+    function toggleFolder(folderPath) {
+      // 处理两类子行：
+      // 1. 非aar文件夹下的子行：class=child-row, data-parent=folderPath
+      // 2. aar文件夹下的子行：class=child-row, data-parent=folderPath
+      // 实际都是data-parent属性对应文件夹路径
+      const childRows = document.querySelectorAll(`tr.child-row[data-parent="${folderPath}"]`);
+      const isVisible = [...childRows].some(row => row.style.display !== 'none');
+
+      childRows.forEach(row => {
+        row.style.display = isVisible ? 'none' : '';
+      });
+    }
+
+    // 载入json并渲染
+    function fetchAndRenderTable() {
+      fetch('config/file_list.json?timestamp=' + new Date().getTime())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          renderTable(data);
+        })
+        .catch(error => {
+          document.getElementById('fileTableBody').innerHTML = 
+            `<tr><td colspan="4" style="text-align:center; color:red;">加载文件失败，请稍后重试。</td></tr>`;
+          console.error('Error fetching the JSON data:', error);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', fetchAndRenderTable);
