@@ -714,7 +714,11 @@ def removeBundleMetaData(flavor) {
         }
         File[] outputFileList = outputDir.listFiles()
         if (outputFileList != null && outputFileList.length > 0) {
-            outputFile = outputFileList[0]
+            outputFileList.each {
+                if (it.absolutePath.endsWith(".aab")) {
+                    outputFile = it
+                }
+            }
         }
         println ""
         println "> Task :${project.name}:removeBundleMetaData [$flavor] flavorName : " + flavorName
@@ -774,29 +778,37 @@ def removeSpecialProguard(flavor) {
         def cleanedFile = null
         def outputDir = getBuildDir()
         outputDir = new File(outputDir, "outputs")
-        outputDir = new File(outputDir, "mapping")
+        def aarFileDir = new File(outputDir, "bundle")
         if (flavor != null) {
-            outputDir = new File(outputDir, flavorName + "Release")
+            aarFileDir = new File(aarFileDir, flavorName + "Release")
         } else {
-            outputDir = new File(outputDir, "release")
+            aarFileDir = new File(aarFileDir, "release")
         }
-        File[] outputFileList = outputDir.listFiles()
+        def mappingDir = new File(outputDir, "mapping")
+        if (flavor != null) {
+            mappingDir = new File(mappingDir, flavorName + "Release")
+        } else {
+            mappingDir = new File(mappingDir, "release")
+        }
+        File[] outputFileList = mappingDir.listFiles()
+        def mappingVersionFileName = "mapping-${android.defaultConfig.versionName}.txt"
         if (outputFileList != null && outputFileList.length > 0) {
-            mappingFile = new File(outputDir, "mapping.txt")
-            mappingBack = new File(outputDir, "mapping-${android.defaultConfig.versionName}.txt")
-            mappingTemp = new File(outputDir, "mapping-cleaned-temp.txt")
-            cleanedFile = new File(outputDir, "mapping-cleaned.txt")
+            mappingFile = new File(mappingDir, "mapping.txt")
+            mappingBack = new File(aarFileDir, mappingVersionFileName)
+            mappingTemp = new File(mappingDir, "mapping-cleaned-temp.txt")
+            cleanedFile = new File(mappingDir, "mapping-cleaned.txt")
         }
         println "> Task :${project.name}:removeSpecialProguard [$flavor] flavorName : " + flavorName
-        println "> Task :${project.name}:removeSpecialProguard [$flavor] outputDir : " + outputDir
+        println "> Task :${project.name}:removeSpecialProguard [$flavor] mappingDir : " + mappingDir
         println "> Task :${project.name}:removeSpecialProguard [$flavor] outputFile : " + mappingFile
-        println "> Task :${project.name}:removeSpecialProguard [$flavor] outputFiles : " + outputDir.list()
+        println "> Task :${project.name}:removeSpecialProguard [$flavor] outputFiles : " + mappingDir.list()
         if (mappingFile != null && mappingFile.exists()) {
             println "> Task :${project.name}:removeSpecialProguard [$flavor] start processing $blackStringList"
             if (mappingBack != null) {
                 if (mappingBack.exists()) {
                     mappingBack.delete()
                 }
+                mappingBack.getParentFile().mkdirs()
                 Files.copy(mappingFile.toPath(), mappingBack.toPath())
             }
             def cleanedCount = 0
@@ -903,7 +915,11 @@ def listBundleMetaDataFiles(flavor) {
     }
     File[] outputFileList = outputDir.listFiles()
     if (outputFileList != null && outputFileList.length > 0) {
-        outputFile = outputFileList[0]
+        outputFileList.each {
+            if (it.absolutePath.endsWith(".aab")) {
+                outputFile = it
+            }
+        }
     }
     println ""
     println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] flavorName : " + flavorName
