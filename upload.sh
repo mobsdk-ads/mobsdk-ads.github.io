@@ -21,7 +21,7 @@ REMOTE_URL=$(git remote get-url origin)
 
 echo "REMOTE_URL = $REMOTE_URL"
 
-echo "WEB_PAGE = https://maven-release.bitbucket.io"
+echo "WEB_PAGE = https://mobsdk-ads.github.io/"
 
 BRANCH=$(git branch)
 
