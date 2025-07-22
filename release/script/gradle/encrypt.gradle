@@ -104,7 +104,7 @@ project.afterEvaluate {
             if (signReleaseBungleTask != null) {
                 signReleaseBungleTask.doLast {
                     removeBundleMetaData(flavor.name)
-                    listBundleMetaDataFiles(flavor.name)
+                    checkBundleFile(flavor.name)
                 }
             }
 
@@ -157,7 +157,7 @@ project.afterEvaluate {
         if (signReleaseBundle != null) {
             signReleaseBundle.doLast {
                 removeBundleMetaData(null)
-                listBundleMetaDataFiles(null)
+                checkBundleFile(null)
             }
         }
 
@@ -791,7 +791,7 @@ def removeSpecialProguard(flavor) {
             mappingDir = new File(mappingDir, "release")
         }
         File[] outputFileList = mappingDir.listFiles()
-        def mappingVersionFileName = "${rootProject.name}_v${android.defaultConfig.versionName}_mapping.txt"
+        def mappingVersionFileName = "mapping.txt"
         if (outputFileList != null && outputFileList.length > 0) {
             mappingFile = new File(mappingDir, "mapping.txt")
             mappingBack = new File(aarFileDir, mappingVersionFileName)
@@ -872,10 +872,6 @@ def removeSpecialProguard(flavor) {
         }
     }
 }
-
-import java.util.zip.ZipFile
-import java.util.zip.ZipEntry
-
 /**
  * 列出 zip/aab 文件中指定目录数组下的所有非目录文件路径。
  *
@@ -902,7 +898,7 @@ def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
 }
 
 
-def listBundleMetaDataFiles(flavor) {
+def checkBundleFile(flavor) {
     def flavorName = flavor != null ? flavor : ""
     def outputFile = null
     def outputDir = getBuildDir()
@@ -921,19 +917,34 @@ def listBundleMetaDataFiles(flavor) {
             }
         }
     }
+    try {
+        if (outputFile != null && outputFile.exists()) {
+            def tmpDir = outputFile.getParentFile()
+            def outputName = outputFile.getName()
+            def srcMapping = new File(tmpDir, "mapping.txt")
+            println "src mapping : $srcMapping"
+            if (srcMapping.exists()) {
+                def dstMappingName = outputName.replaceAll(".aab", ".txt")
+                def dstMappingFile = new File(tmpDir, dstMappingName)
+                println "dst mapping : $dstMappingFile"
+                srcMapping.renameTo(dstMappingFile)
+            }
+        }
+    } catch (Exception e) {
+    }
     println ""
-    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] flavorName : " + flavorName
-    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] outputDir : " + outputDir
-    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] outputFile : " + outputFile
-    println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] outputFiles : " + outputDir.list()
+    println "> Task :${project.name}:checkBundleFile [$flavor] flavorName : " + flavorName
+    println "> Task :${project.name}:checkBundleFile [$flavor] outputDir : " + outputDir
+    println "> Task :${project.name}:checkBundleFile [$flavor] outputFile : " + outputFile
+    println "> Task :${project.name}:checkBundleFile [$flavor] outputFiles : " + outputDir.list()
     if (outputFile != null && outputFile.exists()) {
         def bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/", "META-INF"])
         if (bundleFiles != null && !bundleFiles.isEmpty()) {
-            println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] >>>"
+            println "> Task :${project.name}:checkBundleFile [$flavor] >>>"
             bundleFiles.forEach {
                 println "> Task :>>>> $it"
             }
-            println "> Task :${project.name}:listBundleMetaDataFiles [$flavor] <<<"
+            println "> Task :${project.name}:checkBundleFile [$flavor] <<<"
         }
     }
 }
