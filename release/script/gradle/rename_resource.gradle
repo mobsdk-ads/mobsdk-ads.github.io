@@ -1,0 +1,301 @@
+println "====================== apply rename_resource.gradle========================="
+/*
+ext.real_replace = false
+ext.file_pattern = ["act_": "act_drama_", "frg_": "frg_drama_", "bg_": "bg_drama_", "ic_": "ic_drama_"]
+ext.name_pattern = ["string": "drama_|str_reel_", "color": "color_reel_", "dimen": "dimen_reel_"]
+ext.ignores = ["ic_stat_onesignal_default"]
+ext.modules = [
+        ["name": "baselib", "src_namespace": "com.drama.base", "dst_namespace": "com.reel.base"],
+        ["name": "dramalib", "src_namespace": "com.video.drama", "dst_namespace": "com.reel.drama"],
+        ["name": "app", "src_namespace": "com.weather.forecast.app", "dst_namespace": "com.reel.forecast.app"]
+]
+*/
+
+def notIgnore(ignores, name) {
+    if (ignores != null && !ignores.isEmpty()) {
+        return !ignores.any { name.contains(it) }
+    }
+    return true
+}
+
+String layoutToBinding(String layoutName) {
+    return layoutName.split('_').collect { it.capitalize() }.join('') + 'Binding'
+}
+
+/**
+ * 把 id 名（如 my_text_view）转成 ViewBinding 字段名（myTextView）
+ */
+String idToBindingField(String idName) {
+    if (!idName) return null
+    // 去除前导下划线（如果有）
+    idName = idName.replaceAll(/^_+/, '')
+
+    // 拆分、首字母大写并拼接，首个单词首字母小写
+    def parts = idName.split('_')
+    def first = parts[0].toLowerCase()
+    def rest = parts.size() > 1 ? parts[1..-1].collect { it.capitalize() }.join('') : ''
+    return first + rest
+}
+
+tasks.register("renameResTask") {
+    group = "sdkhub"
+    description = "rename the resource file, id, style and so on"
+    doLast {
+        ext.direct_replace = [:]
+        ext.binding_replace = [:]
+        def modules = rootProject.ext.has("modules") ? rootProject.ext.get('modules') : null
+        def ignores = rootProject.ext.has("ignores") ? rootProject.ext.get('ignores') : null
+        def file_pattern = rootProject.ext.has("file_pattern") ? rootProject.ext.get('file_pattern') : null
+        def name_pattern = rootProject.ext.has("name_pattern") ? rootProject.ext.get('name_pattern') : null
+        def real_replace = rootProject.ext.has("real_replace") ? rootProject.ext.get("real_replace") : false
+        println "> Task :${project.name}:real replace : $real_replace"
+        println "> Task :${project.name}:file pattern : $file_pattern"
+        println "> Task :${project.name}:name_pattern : $name_pattern"
+        if (modules == null || modules.isEmpty()) {
+            println "> Task :${project.name}:miss modules"
+            return
+        }
+        if ((file_pattern == null || file_pattern.isEmpty()) && (name_pattern == null || name_pattern.isEmpty())) {
+            println "> Task :${project.name}:miss file pattern or name pattern"
+        }
+        modules.each { variant ->
+            def src_namespace = variant.src_namespace
+            def dst_namespace = variant.dst_namespace
+            println "> Task :${project.name}:🔁Rename module : [${variant.name}] namespace : [${src_namespace} -> ${dst_namespace}]"
+            if (src_namespace != null && src_namespace.trim() != "" && dst_namespace != null && dst_namespace.trim() != "") {
+                direct_replace[src_namespace] = dst_namespace
+            }
+            def sourceDir = new File(rootDir, variant.name)
+            def dest = sourceDir
+            if (!sourceDir.exists()) {
+                println "> Task :${project.name}:${sourceDir.absolutePath} is not exists"
+                return
+            }
+            sourceDir.eachFileRecurse { file ->
+                String relativePath = file.path - sourceDir.path
+                if (relativePath.startsWith("\\build\\") || relativePath.startsWith("/build/")) {
+                    return
+                }
+                def targetFile = new File(dest, relativePath)
+                if (targetFile.getName() == ".gitignore" || targetFile.getName() == ".gradle") {
+                    return
+                }
+                if (targetFile.getName().endsWith(".aar") || targetFile.getName().endsWith(".jar")) {
+                    return
+                }
+                if (file.isDirectory()) {
+                    return
+                }
+                def resOldName = targetFile.getName()
+                def resParent = targetFile.getParent()
+                // 针对资源文件重命名为指定前缀
+                if ((targetFile.absolutePath.contains("/res/") || targetFile.absolutePath.contains("\\res\\"))) {
+                    def src_pattern = null
+                    def dst_pattern = null
+                    file_pattern.each {
+                        if (resOldName.startsWith(it.key) && !resOldName.startsWith(it.value)) {
+                            src_pattern = it.key
+                            dst_pattern = it.value
+                        }
+                    }
+                    def notIgnore = notIgnore(ignores, resOldName)
+                    if (src_pattern != null && dst_pattern != null && notIgnore) {
+                        def resNewName = resOldName.replace(src_pattern, dst_pattern)
+                        targetFile = new File(resParent, resNewName)
+                        if (!targetFile.absolutePath.contains("values")) {
+                            def oldLastIndex = resOldName.lastIndexOf(".")
+                            def newLastIndex = resNewName.lastIndexOf(".")
+                            if (oldLastIndex > -1 && newLastIndex > -1) {
+                                def resOldNameBase = resOldName.substring(0, oldLastIndex)
+                                def resNewNameBase = resNewName.substring(0, newLastIndex)
+                                if (targetFile.absolutePath.contains("\\drawable") || targetFile.absolutePath.contains("/drawable")) {
+                                    direct_replace["@drawable/$resOldNameBase"] = "@drawable/$resNewNameBase"
+                                    direct_replace["R.drawable.$resOldNameBase"] = "R.drawable.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\mipmap") || targetFile.absolutePath.contains("/mipmap")) {
+                                    direct_replace["@mipmap/$resOldNameBase"] = "@mipmap/$resNewNameBase"
+                                    direct_replace["R.mipmap.$resOldNameBase"] = "R.mipmap.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\raw") || targetFile.absolutePath.contains("/raw")) {
+                                    direct_replace["@raw/$resOldNameBase"] = "@raw/$resNewNameBase"
+                                    direct_replace["R.raw.$resOldNameBase"] = "R.raw.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("/layout") || targetFile.absolutePath.contains("\\layout")) {
+                                    ext.binding_replace[layoutToBinding(resOldNameBase)] = layoutToBinding(resNewNameBase)
+                                    direct_replace["@layout/$resOldNameBase"] = "@layout/$resNewNameBase"
+                                    direct_replace["R.layout.$resOldNameBase"] = "R.layout.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\xml") || targetFile.absolutePath.contains("/xml")) {
+                                    direct_replace["@xml/$resOldNameBase"] = "@xml/$resNewNameBase"
+                                    direct_replace["R.xml.$resOldNameBase"] = "R.xml.$resNewNameBase"
+                                }
+                            }
+                        }
+                    }
+                } else if ((targetFile.absolutePath.contains("/java/") || targetFile.absolutePath.contains("\\java\\"))) {
+                    if (src_namespace != null && src_namespace.trim() != "" && dst_namespace != null && dst_namespace.trim() != "") {
+                        def namespacePath = src_namespace.replace(".", File.separator)
+                        def newNamespacePath = dst_namespace.replace(".", File.separator)
+                        if (targetFile.absolutePath.contains(namespacePath)) {
+                            targetFile = new File(targetFile.absolutePath.replace(namespacePath, newNamespacePath))
+                        }
+                    }
+                }
+                if (isAndroidTextFile(file)) {
+                    // 读取原始数据，并且替换前缀
+                    String content = file.getText("UTF-8")
+                    if (targetFile.absolutePath.endsWith("AndroidManifest.xml") && dst_namespace != null && dst_namespace.trim() != "") {
+                        content = content.replaceAll(/package="[^"]+"/, "package=\"$dst_namespace\"")
+                    } else if (targetFile.absolutePath.endsWith("build.gradle") && dst_namespace != null && dst_namespace.trim() != "") {
+                        content = content.replaceAll(/namespace\s*=\s*"[^"]+"/, "namespace = \"$dst_namespace\"")
+                    } else if (targetFile.absolutePath.endsWith(".xml")) {
+                        // 替换 XML 中的 name="xxx"
+                        content = content.replaceAll(/<(\w+)[^>]*\bname="(\w+)"/) { fullMatch, tag, name ->
+                            // 这里tag 是标签名，name 是name属性的值
+                            def newName = name
+                            def src_pattern = null
+                            def dst_pattern = null
+                            def pattern = name_pattern.get(tag)
+                            if (pattern != null) {
+                                def s = pattern.split("\\|")
+                                if (s.size() == 2) {
+                                    src_pattern = s[0]
+                                    dst_pattern = s[1]
+                                } else if (s.size() == 1) {
+                                    dst_pattern = s[0]
+                                }
+                            }
+                            if (src_pattern != null && dst_pattern != null) {
+                                newName = name.replace(src_pattern, dst_pattern)
+                            }
+                            if (dst_pattern != null && !newName.startsWith(dst_pattern)) {
+                                newName = dst_pattern + newName
+                            }
+                            if (name != newName) {
+                                direct_replace["@${tag}/$name"] = "@${tag}/$newName"
+                                direct_replace["R.${tag}.$name"] = "R.${tag}.$newName"
+                            }
+                            def replaced_content = "<$tag name=\"$newName\""
+                            // println "========= $tag -> $pattern, src_pattern : $src_pattern , dst_pattern : $dst_pattern , replaced_content : $replaced_content"
+                            return replaced_content
+                        }
+
+
+                        // 替换 XML 中的 @+id/xxx 和 @id/xxx
+                        content = content.replaceAll(/(@\+?id\/)(\w+)/) { _, at, id ->
+                            def newId = id
+                            def src_pattern = null
+                            def dst_pattern = null
+                            def pattern = name_pattern.get("id")
+                            if (pattern != null) {
+                                def s = pattern.split("\\|")
+                                if (s.size() == 2) {
+                                    src_pattern = s[0]
+                                    dst_pattern = s[1]
+                                } else if (s.size() == 1) {
+                                    dst_pattern = s[0]
+                                }
+                            }
+                            if (src_pattern != null && dst_pattern != null) {
+                                newId = id.replace(src_pattern, dst_pattern)
+                            }
+                            if (dst_pattern != null && !id.startsWith(dst_pattern)) {
+                                newId = dst_pattern + id
+                            }
+                            if (id != newId) {
+                                direct_replace["@+id/$id"] = "@+id/$newId"
+                                direct_replace["@id/$id"] = "@id/$newId"
+                                direct_replace["R.id.$id"] = "R.id.$newId"
+                                if (targetFile.absolutePath.contains("/layout") || targetFile.absolutePath.contains("\\layout")) {
+                                    ext.binding_replace[".${idToBindingField(id)}"] = ".${idToBindingField(newId)}"
+                                }
+                            }
+                            def replaced_content = "${at}${newId}"
+                            // println "####replaced id : $replaced_content"
+                            replaced_content
+                        }
+                    }
+                    if (real_replace) {
+                        targetFile.parentFile.mkdirs()
+                        file.write(content, "UTF-8")
+                        if (file.absolutePath != targetFile.absolutePath) {
+                            file.renameTo(targetFile)
+                        }
+                    }
+                } else {
+                    if (real_replace) {
+                        file.parentFile.mkdirs()
+                        if (file.getName() != targetFile.getName()) {
+                            file.renameTo(targetFile)
+                        }
+                    }
+                }
+            }
+            dest.eachFileRecurse { file ->
+                String relativePath = file.path - dest.path
+                if (relativePath.startsWith("\\build\\") || relativePath.startsWith("/build/")) {
+                    return
+                }
+                if (file.getName() == ".gitignore" || file.getName() == ".gradle") {
+                    return
+                }
+                if (file.getName().endsWith(".aar") || file.getName().endsWith(".jar")) {
+                    return
+                }
+                if (file.isDirectory()) {
+                    return
+                }
+                if (isAndroidTextFile(file)) {
+                    // 读取原始
+                    String content = file.getText("UTF-8")
+                    // 替换 package / namespace
+                    if (file.absolutePath.contains("/java") || file.absolutePath.contains("\\java")) {
+                        binding_replace.each {
+                            content = content.replaceAll(it.key, it.value)
+                        }
+                    }
+                    direct_replace.each {
+                        content = content.replaceAll(it.key, it.value)
+                    }
+                    if (real_replace) {
+                        file.parentFile.mkdirs()
+                        file.write(content, "UTF-8")
+                    }
+                }
+            }
+            // 清除代码目录的空目录
+            if (real_replace) {
+                def srcDir = new File(sourceDir, "src")
+                deleteEmptyDirs(srcDir)
+            }
+        }
+        direct_replace.each {
+            println "--- ${it.key} -> ${it.value}"
+        }
+        binding_replace.each {
+            println "### ${it.key} -> ${it.value}"
+        }
+    }
+}
+
+def isAndroidTextFile(File file) {
+    def textExtensions = [
+            '.xml', '.gradle', '.properties', '.java', '.kt', '.groovy',
+            '.txt', '.md', '.json', '.yaml', '.yml', '.html', '.license'
+    ]
+    return textExtensions.any { file.name.toLowerCase().endsWith(it) }
+}
+
+def deleteEmptyDirs(File dir) {
+    if (!dir.isDirectory()) return false
+
+    // 递归处理子目录
+    dir.listFiles()?.each { child ->
+        deleteEmptyDirs(child)
+    }
+
+    // 如果当前目录为空，删除它
+    if (dir.listFiles()?.length == 0) {
+        dir.delete()
+        println "> Task :${project.name}:Deleting empty dir: ${dir.path}"
+        return true
+    }
+
+    return false
+}
