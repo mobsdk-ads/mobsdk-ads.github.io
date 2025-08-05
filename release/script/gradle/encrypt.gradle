@@ -922,7 +922,6 @@ def checkBundleFile(flavor) {
             def tmpDir = outputFile.getParentFile()
             def outputName = outputFile.getName()
             def srcMapping = new File(tmpDir, "mapping.txt")
-            println "src mapping : $srcMapping"
             if (srcMapping.exists()) {
                 def dstMappingName = outputName.replaceAll(".aab", ".txt")
                 def dstMappingFile = new File(tmpDir, dstMappingName)
