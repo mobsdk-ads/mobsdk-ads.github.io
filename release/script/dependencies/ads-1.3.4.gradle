@@ -39,11 +39,11 @@ dependencies {
     implementation 'androidx.percentlayout:percentlayout:1.0.0'
 
     if (isContainPlatform(current_platform_array, ADMOB)) {
-        implementation 'com.google.android.gms:play-services-ads:24.4.0'
+        implementation 'com.google.android.gms:play-services-ads:24.5.0'
         // admob applovin mediation
         if (isContainPlatform(current_platform_array, APPLOVIN)) {
-            implementation 'com.applovin.mediation:google-adapter:24.4.0.0@aar'
-            implementation 'com.applovin.mediation:google-ad-manager-adapter:24.4.0.0@aar'
+            implementation 'com.applovin.mediation:google-adapter:24.5.0.0@aar'
+            implementation 'com.applovin.mediation:google-ad-manager-adapter:24.5.0.0@aar'
         }
         // tradplus mediation
         if (isContainPlatform(current_platform_array, TRADPLUS)) {
