@@ -155,14 +155,22 @@
   </table>
 
   <script>
+    function isAdsGradle(filePath) {
+        const regex = /^ads-\d+\.\d+\.\d+\.gradle$/;
+        const fileName = filePath.split(/[/\\]/).pop();
+        return regex.test(fileName)
+    }
     // 按文件夹分组，仅保留.aar文件
     function groupAarFilesByFolder(data) {
       const folderMap = new Map();
 
       data.forEach(file => {
-        if (!file.path.endsWith('-release.aar')) return;
+        const endsWithAar = file.path.endsWith('-release.aar')
+        const endsWithAds = isAdsGradle(file.path)
+        if (!endsWithAar && !endsWithAds) return;
 
         const folderPath = file.path.substring(0, file.path.lastIndexOf('/') + 1);
+        console.log(`folderPath : ${folderPath}`)
         if (!folderMap.has(folderPath)) {
           folderMap.set(folderPath, []);
         }
@@ -238,7 +246,9 @@
       // 先显示非aar文件和文件夹
       data.forEach(file => {
         // 过滤aar文件（这些放在folderMap里处理）
-        if (file.path.endsWith('-release.aar')) return;
+        const endsWithAar = file.path.endsWith('-release.aar')
+        const endsWithAds = isAdsGradle(file.path)
+        if (endsWithAar || endsWithAds) return;
 
         // 过滤某些特殊文件（可选）
         if (file.path === "config/file_list.json" || file.path === "index.html" || file.path === "file_list.sh") {
@@ -380,7 +390,7 @@
           renderTable(data);
         })
         .catch(error => {
-          document.getElementById('fileTableBody').innerHTML = 
+          document.getElementById('fileTableBody').innerHTML =
             `<tr><td colspan="4" style="text-align:center; color:red;">加载文件失败，请稍后重试。</td></tr>`;
           console.error('Error fetching the JSON data:', error);
         });
