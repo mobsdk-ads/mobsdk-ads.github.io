@@ -60,7 +60,7 @@ dependencies {
         }
         // admob applovin mediation
         if (isContainPlatform(current_platform_array, ADMOB)) {
-            implementation 'com.google.ads.mediation:applovin:13.3.1.1@aar'
+            implementation 'com.google.ads.mediation:applovin:13.4.0.0@aar'
         }
     }
 
