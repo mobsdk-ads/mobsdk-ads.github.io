@@ -92,10 +92,12 @@ tasks.register("renameResTask") {
                 if ((targetFile.absolutePath.contains("/res/") || targetFile.absolutePath.contains("\\res\\"))) {
                     def src_pattern = null
                     def dst_pattern = null
-                    file_pattern.each {
-                        if (resOldName.startsWith(it.key) && !resOldName.startsWith(it.value)) {
-                            src_pattern = it.key
-                            dst_pattern = it.value
+                    if (file_pattern != null) {
+                        file_pattern.each {
+                            if (resOldName.startsWith(it.key) && !resOldName.startsWith(it.value)) {
+                                src_pattern = it.key
+                                dst_pattern = it.value
+                            }
                         }
                     }
                     def notIgnore = notIgnore(ignores, resOldName)
@@ -124,6 +126,30 @@ tasks.register("renameResTask") {
                                 } else if (targetFile.absolutePath.contains("\\xml") || targetFile.absolutePath.contains("/xml")) {
                                     direct_replace["@xml/$resOldNameBase"] = "@xml/$resNewNameBase"
                                     direct_replace["R.xml.$resOldNameBase"] = "R.xml.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\menu") || targetFile.absolutePath.contains("/menu")) {
+                                    direct_replace["@menu/$resOldNameBase"] = "@menu/$resNewNameBase"
+                                    direct_replace["R.menu.$resOldNameBase"] = "R.menu.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\color") || targetFile.absolutePath.contains("/color")) {
+                                    direct_replace["@color/$resOldNameBase"] = "@color/$resNewNameBase"
+                                    direct_replace["R.color.$resOldNameBase"] = "R.color.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\font") || targetFile.absolutePath.contains("/font")) {
+                                    direct_replace["@font/$resOldNameBase"] = "@font/$resNewNameBase"
+                                    direct_replace["R.font.$resOldNameBase"] = "R.font.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\anim") || targetFile.absolutePath.contains("/anim")) {
+                                    direct_replace["@anim/$resOldNameBase"] = "@anim/$resNewNameBase"
+                                    direct_replace["R.anim.$resOldNameBase"] = "R.anim.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\animator") || targetFile.absolutePath.contains("/animator")) {
+                                    direct_replace["@animator/$resOldNameBase"] = "@animator/$resNewNameBase"
+                                    direct_replace["R.animator.$resOldNameBase"] = "R.animator.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\transition") || targetFile.absolutePath.contains("/transition")) {
+                                    direct_replace["@transition/$resOldNameBase"] = "@transition/$resNewNameBase"
+                                    direct_replace["R.transition.$resOldNameBase"] = "R.transition.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\navigation") || targetFile.absolutePath.contains("/navigation")) {
+                                    direct_replace["@navigation/$resOldNameBase"] = "@navigation/$resNewNameBase"
+                                    direct_replace["R.navigation.$resOldNameBase"] = "R.navigation.$resNewNameBase"
+                                } else if (targetFile.absolutePath.contains("\\interpolator") || targetFile.absolutePath.contains("/interpolator")) {
+                                    direct_replace["@interpolator/$resOldNameBase"] = "@interpolator/$resNewNameBase"
+                                    direct_replace["R.interpolator.$resOldNameBase"] = "R.interpolator.$resNewNameBase"
                                 }
                             }
                         }
@@ -145,70 +171,70 @@ tasks.register("renameResTask") {
                     } else if (targetFile.absolutePath.endsWith("build.gradle") && dst_namespace != null && dst_namespace.trim() != "") {
                         content = content.replaceAll(/namespace\s*=\s*"[^"]+"/, "namespace = \"$dst_namespace\"")
                     } else if (targetFile.absolutePath.endsWith(".xml")) {
-                        // 替换 XML 中的 name="xxx"
-                        content = content.replaceAll(/<(\w+)[^>]*\bname="(\w+)"/) { fullMatch, tag, name ->
-                            // 这里tag 是标签名，name 是name属性的值
-                            def newName = name
-                            def src_pattern = null
-                            def dst_pattern = null
-                            def pattern = name_pattern.get(tag)
-                            if (pattern != null) {
-                                def s = pattern.split("\\|")
-                                if (s.size() == 2) {
-                                    src_pattern = s[0]
-                                    dst_pattern = s[1]
-                                } else if (s.size() == 1) {
-                                    dst_pattern = s[0]
+                        if (name_pattern != null) {
+                            // 替换 XML 中的 name="xxx"
+                            content = content.replaceAll(/<(\w+)[^>]*\bname="(\w+)"/) { fullMatch, tag, name ->
+                                // 这里tag 是标签名，name 是name属性的值
+                                def newName = name
+                                def src_pattern = null
+                                def dst_pattern = null
+                                def pattern = name_pattern.get(tag)
+                                if (pattern != null) {
+                                    def s = pattern.split("\\|")
+                                    if (s.size() == 2) {
+                                        src_pattern = s[0]
+                                        dst_pattern = s[1]
+                                    } else if (s.size() == 1) {
+                                        dst_pattern = s[0]
+                                    }
                                 }
-                            }
-                            if (src_pattern != null && dst_pattern != null) {
-                                newName = name.replace(src_pattern, dst_pattern)
-                            }
-                            if (dst_pattern != null && !newName.startsWith(dst_pattern)) {
-                                newName = dst_pattern + newName
-                            }
-                            if (name != newName) {
-                                direct_replace["@${tag}/$name"] = "@${tag}/$newName"
-                                direct_replace["R.${tag}.$name"] = "R.${tag}.$newName"
-                            }
-                            def replaced_content = "<$tag name=\"$newName\""
-                            // println "========= $tag -> $pattern, src_pattern : $src_pattern , dst_pattern : $dst_pattern , replaced_content : $replaced_content"
-                            return replaced_content
-                        }
-
-
-                        // 替换 XML 中的 @+id/xxx 和 @id/xxx
-                        content = content.replaceAll(/(@\+?id\/)(\w+)/) { _, at, id ->
-                            def newId = id
-                            def src_pattern = null
-                            def dst_pattern = null
-                            def pattern = name_pattern.get("id")
-                            if (pattern != null) {
-                                def s = pattern.split("\\|")
-                                if (s.size() == 2) {
-                                    src_pattern = s[0]
-                                    dst_pattern = s[1]
-                                } else if (s.size() == 1) {
-                                    dst_pattern = s[0]
+                                if (src_pattern != null && dst_pattern != null) {
+                                    newName = name.replace(src_pattern, dst_pattern)
                                 }
-                            }
-                            if (src_pattern != null && dst_pattern != null) {
-                                newId = id.replace(src_pattern, dst_pattern)
-                            }
-                            if (dst_pattern != null && !id.startsWith(dst_pattern)) {
-                                newId = dst_pattern + id
-                            }
-                            if (id != newId) {
-                                direct_replace["@+id/$id"] = "@+id/$newId"
-                                direct_replace["@id/$id"] = "@id/$newId"
-                                direct_replace["R.id.$id"] = "R.id.$newId"
-                                if (targetFile.absolutePath.contains("/layout") || targetFile.absolutePath.contains("\\layout")) {
-                                    ext.binding_replace[".${idToBindingField(id)}"] = ".${idToBindingField(newId)}"
+                                if (dst_pattern != null && !newName.startsWith(dst_pattern)) {
+                                    newName = dst_pattern + newName
                                 }
+                                if (name != newName) {
+                                    direct_replace["@${tag}/$name"] = "@${tag}/$newName"
+                                    direct_replace["R.${tag}.$name"] = "R.${tag}.$newName"
+                                }
+                                def replaced_content = "<$tag name=\"$newName\""
+                                // println "========= $tag -> $pattern, src_pattern : $src_pattern , dst_pattern : $dst_pattern , replaced_content : $replaced_content"
+                                return replaced_content
                             }
-                            def replaced_content = "${at}${newId}"
-                            // println "####replaced id : $replaced_content"
-                            replaced_content
+                            // 替换 XML 中的 @+id/xxx 和 @id/xxx
+                            content = content.replaceAll(/(@\+?id\/)(\w+)/) { _, at, id ->
+                                def newId = id
+                                def src_pattern = null
+                                def dst_pattern = null
+                                def pattern = name_pattern.get("id")
+                                if (pattern != null) {
+                                    def s = pattern.split("\\|")
+                                    if (s.size() == 2) {
+                                        src_pattern = s[0]
+                                        dst_pattern = s[1]
+                                    } else if (s.size() == 1) {
+                                        dst_pattern = s[0]
+                                    }
+                                }
+                                if (src_pattern != null && dst_pattern != null) {
+                                    newId = id.replace(src_pattern, dst_pattern)
+                                }
+                                if (dst_pattern != null && !id.startsWith(dst_pattern)) {
+                                    newId = dst_pattern + id
+                                }
+                                if (id != newId) {
+                                    direct_replace["@+id/$id"] = "@+id/$newId"
+                                    direct_replace["@id/$id"] = "@id/$newId"
+                                    direct_replace["R.id.$id"] = "R.id.$newId"
+                                    if (targetFile.absolutePath.contains("/layout") || targetFile.absolutePath.contains("\\layout")) {
+                                        ext.binding_replace[".${idToBindingField(id)}"] = ".${idToBindingField(newId)}"
+                                    }
+                                }
+                                def replaced_content = "${at}${newId}"
+                                // println "####replaced id : $replaced_content"
+                                replaced_content
+                            }
                         }
                     }
                     if (real_replace) {
