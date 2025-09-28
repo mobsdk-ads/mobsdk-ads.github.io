@@ -1099,7 +1099,7 @@ def transformAab2ApkLocked(productFlavor, aabOutputFileName) {
     bundleToolDir.mkdirs()
     def bundleToolPath = new File(bundleToolDir, bundleFileName).getAbsolutePath()
     def bundleToolPathCompleteFile = new File(bundleToolDir, bundleFileName + ".lock").getAbsolutePath()
-    def bundleToolUrl = "https://mobsdk-ads.github.io/tools/bundletool/" + bundleFileName
+    def bundleToolUrl = "https://mobsdk-ads.github.io/release/tools/bundletool/" + bundleFileName
     println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
     println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] bundleToolPath : " + bundleToolPath
     if (!new File(bundleToolPath).exists() || !new File(bundleToolPathCompleteFile).exists()) {
