@@ -170,7 +170,7 @@
         if (!endsWithAar && !endsWithAds) return;
 
         const folderPath = file.path.substring(0, file.path.lastIndexOf('/') + 1);
-        console.log(`folderPath : ${folderPath}`)
+        // console.log(`folderPath : ${folderPath}`)
         if (!folderMap.has(folderPath)) {
           folderMap.set(folderPath, []);
         }
@@ -231,7 +231,7 @@
     }
 
     // 主渲染函数
-    function renderTable(data) {
+    function renderTable(data, sdkRemark) {
       const tableBody = document.getElementById('fileTableBody');
       const base = window.document.baseURI;
       const folderMap = groupAarFilesByFolder(data);
@@ -251,7 +251,7 @@
         if (endsWithAar || endsWithAds) return;
 
         // 过滤某些特殊文件（可选）
-        if (file.path === "config/file_list.json" || file.path === "index.html" || file.path === "file_list.sh") {
+        if (file.path === "config/file_list.json" || file.path === "index.html" || file.path === "file_list.sh" || file.path == "offline.json") {
           return;
         }
 
@@ -326,11 +326,37 @@
         const folderRow = document.createElement('tr');
         folderRow.classList.add('folder-row');
         folderRow.dataset.folder = folderPath;
-
+        var statusText
+        if (folderPath.endsWith("dependencies/")) {
+          statusText = "依赖文件[脚本]"
+        } else {
+          const fullPath = folderPath;
+          const parts = fullPath.replace(/\/+$/, '').split('/');
+          const lastFolder = parts.pop();
+          if (sdkRemark != null) {
+            try {
+              const sdkOffline = sdkRemark["offline"]
+              const sdkIsOffline = sdkOffline.includes(lastFolder)
+              console.log(`${lastFolder} is included in sdkOffline : ${sdkIsOffline}`);
+              if (sdkIsOffline) {
+                statusText = "<font color=red>广告SDK[离线]</font>"
+              } else {
+                statusText = "广告SDK[在线]"
+              }
+            } catch(e) {
+              statusText = "广告SDK[在线]"
+            }
+          } else {
+            statusText = "广告SDK[在线]"
+          }
+        }
         folderRow.innerHTML = `
-          <td colspan="4">
+          <td colspan="1">
             <span class="file-icon">📁</span>
             <a href="javascript:void(0)" onclick="toggleFolder('${folderPath}')">${escapeHtml(folderPath)}</a>
+          </td>
+          <td colspan="3">
+            <span>${statusText}</span>
           </td>
         `;
 
@@ -376,9 +402,25 @@
         row.style.display = isVisible ? 'none' : '';
       });
     }
-
+    function fetchOfflineData() {
+      fetch('config/sdk_remark.json?timestamp=' + new Date().getTime())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log(`data : ${data}`)
+          fetchAndRenderTable(data)
+        })
+        .catch(error => {
+          console.error('Error fetching the sdk_remark.json data:', error);
+          fetchAndRenderTable(null)
+        });
+    }
     // 载入json并渲染
-    function fetchAndRenderTable() {
+    function fetchAndRenderTable(sdkRemark) {
       fetch('config/file_list.json?timestamp=' + new Date().getTime())
         .then(response => {
           if (!response.ok) {
@@ -387,16 +429,16 @@
           return response.json();
         })
         .then(data => {
-          renderTable(data);
+          renderTable(data, sdkRemark);
         })
         .catch(error => {
           document.getElementById('fileTableBody').innerHTML =
             `<tr><td colspan="4" style="text-align:center; color:red;">加载文件失败，请稍后重试。</td></tr>`;
-          console.error('Error fetching the JSON data:', error);
+          console.error('Error fetching the file_list.json data:', error);
         });
     }
 
-    document.addEventListener('DOMContentLoaded', fetchAndRenderTable);
+    document.addEventListener('DOMContentLoaded', fetchOfflineData);
   </script>
 </body>
 </html>
