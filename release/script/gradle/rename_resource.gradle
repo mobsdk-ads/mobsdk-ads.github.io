@@ -1,6 +1,7 @@
 println "====================== apply rename_resource.gradle========================="
 /*
 ext.real_replace = false
+ext.java_pattern = ["Mob":"Blue"]
 ext.file_pattern = ["act_": "act_drama_", "frg_": "frg_drama_", "bg_": "bg_drama_", "ic_": "ic_drama_"]
 ext.name_pattern = ["string": "drama_|str_reel_", "color": "color_reel_", "dimen": "dimen_reel_"]
 ext.ignores = ["ic_stat_onesignal_default"]
@@ -47,9 +48,11 @@ tasks.register("renameResTask") {
         def ignores = rootProject.ext.has("ignores") ? rootProject.ext.get('ignores') : null
         def file_pattern = rootProject.ext.has("file_pattern") ? rootProject.ext.get('file_pattern') : null
         def name_pattern = rootProject.ext.has("name_pattern") ? rootProject.ext.get('name_pattern') : null
+        def java_pattern = rootProject.ext.has("java_pattern") ? rootProject.ext.get('java_pattern') : null
         def real_replace = rootProject.ext.has("real_replace") ? rootProject.ext.get("real_replace") : false
         println "> Task :${project.name}:real replace : $real_replace"
         println "> Task :${project.name}:file pattern : $file_pattern"
+        println "> Task :${project.name}:java pattern : $java_pattern"
         println "> Task :${project.name}:name_pattern : $name_pattern"
         if (modules == null || modules.isEmpty()) {
             println "> Task :${project.name}:miss modules"
@@ -89,7 +92,8 @@ tasks.register("renameResTask") {
                 def resOldName = targetFile.getName()
                 def resParent = targetFile.getParent()
                 // 针对资源文件重命名为指定前缀
-                if ((targetFile.absolutePath.contains("/res/") || targetFile.absolutePath.contains("\\res\\"))) {
+                if ((targetFile.absolutePath.contains("/res/") || targetFile.absolutePath.contains("\\res\\"))
+                     || (targetFile.absolutePath.contains("/assets/") || targetFile.absolutePath.contains("\\assets\\"))) {
                     def src_pattern = null
                     def dst_pattern = null
                     if (file_pattern != null) {
@@ -104,7 +108,7 @@ tasks.register("renameResTask") {
                     if (src_pattern != null && dst_pattern != null && notIgnore) {
                         def resNewName = resOldName.replace(src_pattern, dst_pattern)
                         targetFile = new File(resParent, resNewName)
-                        if (!targetFile.absolutePath.contains("values")) {
+                        if (!targetFile.absolutePath.contains("values") && !targetFile.absolutePath.contains("assets")) {
                             def oldLastIndex = resOldName.lastIndexOf(".")
                             def newLastIndex = resNewName.lastIndexOf(".")
                             if (oldLastIndex > -1 && newLastIndex > -1) {
@@ -155,6 +159,29 @@ tasks.register("renameResTask") {
                         }
                     }
                 } else if ((targetFile.absolutePath.contains("/java/") || targetFile.absolutePath.contains("\\java\\"))) {
+                    // java文件夹的文件名字替换
+                    def src_pattern = null
+                    def dst_pattern = null
+                    if (java_pattern != null) {
+                        java_pattern.each {
+                            if (resOldName.startsWith(it.key) && !resOldName.startsWith(it.value)) {
+                                src_pattern = it.key
+                                dst_pattern = it.value
+                            }
+                        }
+                    }
+                    def notIgnore = notIgnore(ignores, resOldName)
+                    if (src_pattern != null && dst_pattern != null && notIgnore) {
+                        def resNewName = resOldName.replace(src_pattern, dst_pattern)
+                        targetFile = new File(resParent, resNewName)
+                        def oldLastIndex = resOldName.lastIndexOf(".")
+                        def newLastIndex = resNewName.lastIndexOf(".")
+                        if (oldLastIndex > -1 && newLastIndex > -1) {
+                            def resOldNameBase = resOldName.substring(0, oldLastIndex)
+                            def resNewNameBase = resNewName.substring(0, newLastIndex)
+                            direct_replace[resOldNameBase] = resNewNameBase
+                        }
+                    }
                     if (src_namespace != null && src_namespace.trim() != "" && dst_namespace != null && dst_namespace.trim() != "") {
                         def namespacePath = src_namespace.replace(".", File.separator)
                         def newNamespacePath = dst_namespace.replace(".", File.separator)
@@ -173,7 +200,7 @@ tasks.register("renameResTask") {
                     } else if (targetFile.absolutePath.endsWith(".xml")) {
                         if (name_pattern != null) {
                             // 替换 XML 中的 name="xxx"
-                            content = content.replaceAll(/<(\w+)[^>]*\bname="(\w+)"/) { fullMatch, tag, name ->
+                            content = content.replaceAll(/<([\w-]+)[^>]*\bname="(\w+)"/) { fullMatch, tag, name ->
                                 // 这里tag 是标签名，name 是name属性的值
                                 def newName = name
                                 def src_pattern = null
@@ -188,7 +215,7 @@ tasks.register("renameResTask") {
                                         dst_pattern = s[0]
                                     }
                                 }
-                                if (src_pattern != null && dst_pattern != null) {
+                                if (src_pattern != null && src_pattern.trim() != "" && dst_pattern != null && dst_pattern.trim() != "") {
                                     newName = name.replace(src_pattern, dst_pattern)
                                 }
                                 if (dst_pattern != null && !newName.startsWith(dst_pattern)) {
@@ -217,7 +244,7 @@ tasks.register("renameResTask") {
                                         dst_pattern = s[0]
                                     }
                                 }
-                                if (src_pattern != null && dst_pattern != null) {
+                                if (src_pattern != null && src_pattern.trim() != "" && dst_pattern != null && dst_pattern.trim() != "") {
                                     newId = id.replace(src_pattern, dst_pattern)
                                 }
                                 if (dst_pattern != null && !id.startsWith(dst_pattern)) {
