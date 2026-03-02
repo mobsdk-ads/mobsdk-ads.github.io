@@ -73,6 +73,14 @@ try {
     }
 } catch (Exception e) {
     println("add maven error : " + e)
+    println("please add the below repositories into settings.gradle.kts manually:")
+    println("dependencyResolutionManagement {")
+    println("    repositories {")
+    mavenUrls.forEach {
+        println("        maven { url = uri(\"$it\") }")
+    }
+    println("    }")
+    println("}")
 }
 
 project.afterEvaluate {
