@@ -1,14 +1,14 @@
 println "====================== apply rename_resource.gradle========================="
 /*
 ext.real_replace = false
-ext.java_pattern = ["Mob":"Blue"]
-ext.file_pattern = ["act_": "act_drama_", "frg_": "frg_drama_", "bg_": "bg_drama_", "ic_": "ic_drama_"]
-ext.name_pattern = ["string": "drama_|str_reel_", "color": "color_reel_", "dimen": "dimen_reel_"]
-ext.ignores = ["ic_stat_onesignal_default"]
+ext.file_pattern = ["act_mist_": "act_halo_", "frg_mist_": "frg_halo_", "bg_mist_": "bg_halo_", "ic_mist_": "ic_halo_", "dialog_mist_": "dialog_halo_", "mist_":"halo_"]
+ext.name_pattern = ["string": "mist_|str_halo_", "color": "color_halo_", "dimen": "dimen_halo_"]
+ext.java_pattern = ["Mist": "Halo"]
 ext.modules = [
-        ["name": "baselib", "src_namespace": "com.drama.base", "dst_namespace": "com.reel.base"],
-        ["name": "dramalib", "src_namespace": "com.video.drama", "dst_namespace": "com.reel.drama"],
-        ["name": "app", "src_namespace": "com.weather.forecast.app", "dst_namespace": "com.reel.forecast.app"]
+        ["name": "baselib", "src_namespace": "com.mist.base.config", "dst_namespace": "com.halo.base.config"],
+        ["name": "weather", "src_namespace": "com.mist.weather", "dst_namespace": "com.halo.weather", "res_dirname":"res|res-app|res-weather|res-widget"],
+        ["name": "search", "src_namespace": "com.mist.search", "dst_namespace": "com.halo.search"],
+        ["name": "app", "res_dirname":"res-app", "ignore_dirname":"res"]
 ]
 */
 
@@ -64,7 +64,19 @@ tasks.register("renameResTask") {
         modules.each { variant ->
             def src_namespace = variant.src_namespace
             def dst_namespace = variant.dst_namespace
-            println "> Task :${project.name}:🔁Rename module : [${variant.name}] namespace : [${src_namespace} -> ${dst_namespace}]"
+            def res_dirname = null
+            try {
+                res_dirname = Arrays.asList(variant.res_dirname.split("\\|"))
+            } catch (Exception e) {
+                res_dirname = []
+            }
+            def ignore_dirname = null
+            try {
+                ignore_dirname = Arrays.asList(variant.ignore_dirname.split("\\|"))
+            } catch (Exception e) {
+                ignore_dirname = []
+            }
+            println "> Task :${project.name}:🔁Rename module : [${variant.name}] namespace : [${src_namespace} -> ${dst_namespace}] res dir name : [${res_dirname} ignore dir name : [${ignore_dirname}]]"
             if (src_namespace != null && src_namespace.trim() != "" && dst_namespace != null && dst_namespace.trim() != "") {
                 direct_replace[src_namespace] = dst_namespace
             }
@@ -89,11 +101,31 @@ tasks.register("renameResTask") {
                 if (file.isDirectory()) {
                     return
                 }
+                def contains_ignore_dir = false
+                if (ignore_dirname != null && ignore_dirname.size() > 0) {
+                    ignore_dirname.each {
+                        if (targetFile.absolutePath.contains("/$it/") || targetFile.absolutePath.contains("\\$it\\")) {
+                            contains_ignore_dir = true
+                        }
+                    }
+                }
+                if (contains_ignore_dir) {
+                    return
+                }
                 def resOldName = targetFile.getName()
                 def resParent = targetFile.getParent()
                 // 针对资源文件重命名为指定前缀
-                if ((targetFile.absolutePath.contains("/res/") || targetFile.absolutePath.contains("\\res\\"))
-                     || (targetFile.absolutePath.contains("/assets/") || targetFile.absolutePath.contains("\\assets\\"))) {
+                def contains_res_dir = false
+                if (res_dirname != null && res_dirname.size() > 0) {
+                    res_dirname.each {
+                        if (targetFile.absolutePath.contains("/$it/") || targetFile.absolutePath.contains("\\$it\\")) {
+                            contains_res_dir = true
+                        }
+                    }
+                } else {
+                    contains_res_dir = targetFile.absolutePath.contains("/res/") || targetFile.absolutePath.contains("\\res\\")
+                }
+                if (contains_res_dir || (targetFile.absolutePath.contains("/assets/") || targetFile.absolutePath.contains("\\assets\\"))) {
                     def src_pattern = null
                     def dst_pattern = null
                     if (file_pattern != null) {

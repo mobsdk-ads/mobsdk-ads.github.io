@@ -1038,15 +1038,25 @@ def transformAab2ApkFlavor() {
     println "> Task :${project.name}:transformAab2Apk"
     if (project.android.productFlavors.size() > 0) {// 如果有产品风味
         project.android.productFlavors.each { flavor ->
-            def baseName = getArchivesBaseName()
+            def baseName = getNormalizeBaseName()
             def aabOutputAabFileName = baseName + "-" + flavor.name + "-release.aab"
             transformAab2ApkLocked(flavor.name, aabOutputAabFileName)
         }
     } else {
-        def baseName = getArchivesBaseName()
+        def baseName = getNormalizeBaseName()
         def aabOutputAabFileName = baseName + "-release.aab"
         transformAab2ApkLocked(null, aabOutputAabFileName)
     }
+}
+
+def getNormalizeBaseName() {
+    def baseName
+    try {
+        baseName = getArchivesBaseName()
+    } catch (Exception e) {
+        baseName = project.base.archivesName.getOrElse(project.name)
+    }
+    return baseName
 }
 
 def transformAab2ApkLocked(productFlavor, aabOutputFileName) {
