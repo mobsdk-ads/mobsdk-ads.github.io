@@ -1,3 +1,11 @@
 {
-    "offline" : ["mobsdk","mobads","argads","mtsads"]
+    "offline" : ["mobsdk","mobads","argads","mtsads"],
+    "developer" : {
+        "blueads" : "Bluewhale Studio",
+        "museads" : "ArgonIsBlue",
+        "luxads" : "Luxi Liu",
+        "abtads" : "Nanjing Argon Blue Technology Co., Ltd.",
+        "shxads" : "ShanXiaoCulture.Art",
+        "mixads" : "",
+    }
 }

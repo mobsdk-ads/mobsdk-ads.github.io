@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>File Explorer</title>
+  <title>广告SDK集合</title>
   <base href="https://mobsdk-ads.github.io/" />
 
   <style>
@@ -17,6 +17,70 @@
       background: #f4f6f9;
       color: #333;
       padding: 20px;
+    }
+
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(244, 246, 249, 0.96);
+      z-index: 10;
+    }
+
+    .auth-card {
+      width: min(420px, 100%);
+      padding: 28px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+    }
+
+    .auth-card h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      color: #222;
+    }
+
+    .auth-card p {
+      margin: 0 0 16px;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d7dce3;
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .auth-input:focus {
+      border-color: #007acc;
+      box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.12);
+    }
+
+    .auth-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .auth-error {
+      min-height: 20px;
+      margin-top: 10px;
+      color: #d93025;
+      font-size: 13px;
+    }
+
+    .hidden {
+      display: none !important;
     }
 
     h1 {
@@ -91,16 +155,15 @@
       font-size: 16px;
     }
 
-    /* 文件夹行样式 */
     tr.folder-row {
       background-color: #e7f3ff;
       font-weight: 600;
     }
 
-	tr.folder-row > td {
-	  padding: 8px 4px;    /* 跟普通单元格一样的padding */
-	  vertical-align: middle;
-	}
+    tr.folder-row > td {
+      padding: 8px 4px;
+      vertical-align: middle;
+    }
 
     tr.child-row:hover {
       background-color: #dbeeff;
@@ -140,37 +203,103 @@
   </style>
 </head>
 <body>
-  <h1>📁 文件浏览器</h1>
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+      <h2>访问验证</h2>
+      <p>请输入访问密码，验证通过后加载页面内容。</p>
+      <input id="passwordInput" class="auth-input" type="password" placeholder="请输入密码" autocomplete="current-password" />
+      <div class="auth-actions">
+        <button id="unlockButton" class="copy-btn" type="button">解锁</button>
+      </div>
+      <div id="authError" class="auth-error"></div>
+    </div>
+  </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>文件路径</th>
-        <th>大小</th>
-        <th>修改时间</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody id="fileTableBody"></tbody>
-  </table>
+  <div id="protectedContent" class="hidden">
+    <h1>📁 文件浏览器</h1>
+
+    <table>
+      <thead>
+        <tr>
+          <th>文件路径</th>
+          <th>大小</th>
+          <th>修改时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="fileTableBody"></tbody>
+    </table>
+  </div>
 
   <script>
+    const AUTH_STORAGE_KEY = 'repo-page-unlocked';
+    const EXPECTED_HASH = ['0fa11983', '1b2cce1a', '23484eb7', '42b23e3f', '83e2441a', 'b5618971', '7b00260b', '4b55ba29'].join('');
+
+    async function sha256(text) {
+      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buffer))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    function showProtectedContent() {
+      document.getElementById('authOverlay').classList.add('hidden');
+      document.getElementById('protectedContent').classList.remove('hidden');
+    }
+
+    async function unlockPage() {
+      const passwordInput = document.getElementById('passwordInput');
+      const authError = document.getElementById('authError');
+      const passwordHash = await sha256(passwordInput.value);
+
+      if (passwordHash !== EXPECTED_HASH) {
+        authError.textContent = '密码错误';
+        passwordInput.focus();
+        passwordInput.select();
+        return;
+      }
+
+      sessionStorage.setItem(AUTH_STORAGE_KEY, '1');
+      authError.textContent = '';
+      showProtectedContent();
+      fetchOfflineData();
+    }
+
+    function initAuth() {
+      const passwordInput = document.getElementById('passwordInput');
+      const unlockButton = document.getElementById('unlockButton');
+
+      unlockButton.addEventListener('click', unlockPage);
+      passwordInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          unlockPage();
+        }
+      });
+
+      if (sessionStorage.getItem(AUTH_STORAGE_KEY) === '1') {
+        showProtectedContent();
+        fetchOfflineData();
+        return;
+      }
+
+      passwordInput.focus();
+    }
+
     function isAdsGradle(filePath) {
-        const regex = /^ads-\d+\.\d+\.\d+\.gradle$/;
-        const fileName = filePath.split(/[/\\]/).pop();
-        return regex.test(fileName)
+      const regex = /^ads-\d+\.\d+\.\d+\.gradle$/;
+      const fileName = filePath.split(/[/\\]/).pop();
+      return regex.test(fileName);
     }
     // 按文件夹分组，仅保留.aar文件
     function groupAarFilesByFolder(data) {
       const folderMap = new Map();
 
       data.forEach(file => {
-        const endsWithAar = file.path.endsWith('-release.aar')
-        const endsWithAds = isAdsGradle(file.path)
+        const endsWithAar = file.path.endsWith('-release.aar');
+        const endsWithAds = isAdsGradle(file.path);
         if (!endsWithAar && !endsWithAds) return;
 
         const folderPath = file.path.substring(0, file.path.lastIndexOf('/') + 1);
-        // console.log(`folderPath : ${folderPath}`)
         if (!folderMap.has(folderPath)) {
           folderMap.set(folderPath, []);
         }
@@ -182,7 +311,7 @@
 
     // 转义html，防止XSS
     function escapeHtml(text) {
-      const div = document.createElement("div");
+      const div = document.createElement('div');
       div.appendChild(document.createTextNode(text));
       return div.innerHTML;
     }
@@ -194,32 +323,31 @@
 
       const ext = filePath.split('.').pop().toLowerCase();
       const iconMap = {
-        'apk': '📱',
-        'zip': '🗜️',
-        'rar': '🗜️',
-        'tar': '🗜️',
-        'gz': '🗜️',
-        'pdf': '📄',
-        'txt': '📄',
-        'md': '📝',
-        'html': '🌐',
-        'htm': '🌐',
-        'jpg': '🖼️',
-        'jpeg': '🖼️',
-        'png': '🖼️',
-        'gif': '🖼️',
-        'mp4': '🎞️',
-        'mp3': '🎵',
-        'json': '🔧',
-        'xml': '📘',
-        'sh': '🐚',
-        'exe': '⚙️',
-        'aar': '📦'
+        apk: '📦',
+        zip: '🗜️',
+        rar: '🗜️',
+        tar: '🗜️',
+        gz: '🗜️',
+        pdf: '📕',
+        txt: '📕',
+        md: '📘',
+        html: '🌐',
+        htm: '🌐',
+        jpg: '🖼️',
+        jpeg: '🖼️',
+        png: '🖼️',
+        gif: '🖼️',
+        mp4: '🎬',
+        mp3: '🎵',
+        json: '🧩',
+        xml: '📌',
+        sh: '💻',
+        exe: '⚙️',
+        aar: '📄'
       };
-      return iconMap[ext] || '📦';
+      return iconMap[ext] || '📄';
     }
 
-    // 复制文本并显示“已复制”提示
     function copyToClipboard(text, buttonElement) {
       navigator.clipboard.writeText(text).then(() => {
         const label = buttonElement.nextElementSibling;
@@ -239,7 +367,7 @@
       tableBody.innerHTML = '';
 
       if (data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px;">暂无文件</td></tr>`;
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">暂无文件</td></tr>';
         return;
       }
 
@@ -310,7 +438,6 @@
 
             tableBody.appendChild(childRow);
           });
-
         } else {
           // 普通文件直接添加行
           tableBody.appendChild(row);
@@ -318,7 +445,18 @@
       });
 
       // 再显示.aar文件夹行（根据folderMap）
-      folderMap.forEach((files, folderPath) => {
+      const sdkOfflineList = Array.isArray(sdkRemark && sdkRemark["offline"]) ? sdkRemark["offline"] : [];
+      const sortedFolderEntries = Array.from(folderMap.entries()).sort((a, b) => {
+        const getFolderPriority = folderEntry => {
+          const currentFolderPath = folderEntry[0];
+          const folderName = currentFolderPath.replace(/\/+$/, '').split('/').pop();
+          return sdkOfflineList.includes(folderName) ? 1 : 0;
+        };
+
+        return getFolderPriority(a) - getFolderPriority(b);
+      });
+
+      sortedFolderEntries.forEach(([folderPath, files]) => {
         // 如果这个文件夹已经被显示过（data中存在且为文件夹行），则不重复显示
         // 这里简单处理，不判断是否已显示，直接插入.aar文件夹行，可能重复（可根据需要优化）
         // 你也可以做去重，或者调整显示顺序
@@ -327,6 +465,7 @@
         folderRow.classList.add('folder-row');
         folderRow.dataset.folder = folderPath;
         var statusText
+        var developerName = ""
         if (folderPath.endsWith("dependencies/")) {
           statusText = "依赖文件[脚本]"
         } else {
@@ -346,8 +485,18 @@
             } catch(e) {
               statusText = "广告SDK[在线]"
             }
+
+            try {
+              const developerJson = sdkRemark["developer"]
+              developerName = developerJson[`${lastFolder}`] || ""
+              console.log(`${lastFolder} developer name is : ${developerName}`);
+            } catch(e) {
+              console.log(`error : ${e}`)
+              developerName = ""
+            }
           } else {
-            statusText = "广告SDK[在线]"
+            developerName = ""
+            statusText = ""
           }
         }
         folderRow.innerHTML = `
@@ -355,8 +504,11 @@
             <span class="file-icon">📁</span>
             <a href="javascript:void(0)" onclick="toggleFolder('${folderPath}')">${escapeHtml(folderPath)}</a>
           </td>
-          <td colspan="3">
+          <td colspan="1">
             <span>${statusText}</span>
+          </td>
+          <td colspan="2">
+            <span>${developerName}</span>
           </td>
         `;
 
@@ -411,7 +563,7 @@
           return response.json();
         })
         .then(data => {
-          console.log(`data : ${data}`)
+          // console.log(`data : ${data}`)
           fetchAndRenderTable(data)
         })
         .catch(error => {
@@ -438,7 +590,7 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', fetchOfflineData);
+    document.addEventListener('DOMContentLoaded', initAuth);
   </script>
 </body>
 </html>
