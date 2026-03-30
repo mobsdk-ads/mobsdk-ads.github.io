@@ -465,9 +465,10 @@
         folderRow.classList.add('folder-row');
         folderRow.dataset.folder = folderPath;
         var statusText
-        var developerName = ""
+        var developerText = ""
         if (folderPath.endsWith("dependencies/")) {
           statusText = "依赖文件[脚本]"
+          developerText = "广告配置"
         } else {
           const fullPath = folderPath;
           const parts = fullPath.replace(/\/+$/, '').split('/');
@@ -490,12 +491,13 @@
               const developerJson = sdkRemark["developer"]
               developerName = developerJson[`${lastFolder}`] || ""
               console.log(`${lastFolder} developer name is : ${developerName}`);
+              developerText = `<font color="#007acc">${developerName}</font>`
             } catch(e) {
               console.log(`error : ${e}`)
-              developerName = ""
+              developerText = ""
             }
           } else {
-            developerName = ""
+            developerText = ""
             statusText = ""
           }
         }
@@ -508,7 +510,7 @@
             <span>${statusText}</span>
           </td>
           <td colspan="2">
-            <span>${developerName}</span>
+            <span>${developerText}</span>
           </td>
         `;
 
