@@ -64,12 +64,15 @@ def mavenUrls = [
         // "https://artifactory.verizonmedia.com/artifactory/maven",
 ]
 try {
-    def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
-    project.rootProject.allprojects.repositories.each {
-        repo ->
-            for (String url : sdkMavenUrls) {
-                repo.maven { r -> r.url = url }
-            }
+    def useInternalMaven = ext.has("use_internal_maven") ? ext["use_internal_maven"] : true
+    if (useInternalMaven) {
+        def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
+        project.rootProject.allprojects.repositories.each {
+            repo ->
+                for (String url : sdkMavenUrls) {
+                    repo.maven { r -> r.url = url }
+                }
+        }
     }
 } catch (Exception e) {
     println("add maven error : " + e)
