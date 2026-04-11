@@ -312,7 +312,7 @@ def getAaptFile() {
         return null
     }
     def exe = ""
-    if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+    if (isWindows()) {
         exe = ".exe"
     }
     def compileSdkVersion = android.compileSdkVersion
@@ -355,13 +355,14 @@ def isWindows() {
  * @return
  */
 def openReleaseDir(flavor) {
-    if (!isWindows() || !ext.has("openRelease") || ext["openRelease"] != true) {
+    if (!ext.has("openRelease") || ext["openRelease"] != true) {
         return
     }
     try {
+        def openCmd = isWindows() ? "explorer.exe" : "open"
         def outputDir = String.format("outputs/apk/%srelease", ((flavor != null && flavor.trim().length() > 0) ? flavor + "/" : ""))
         def outputPath = new File(project.buildDir, outputDir)
-        def cmd = "explorer.exe " + outputPath
+        def cmd = openCmd + outputPath
         cmd.execute()
         println ":${project.name}:openReleaseDir [${outputPath}]"
     } catch (Exception e) {
@@ -958,8 +959,17 @@ def checkBundleFile(flavor) {
 //////////////////////////////////////////////////////////////////////////////////////////
 afterEvaluate {
     try {
-        def taskName = getGradle().getStartParameter().getTaskRequests()[0]["args"][0].toString()
-        if (taskName != null && taskName.toLowerCase(Locale.ENGLISH).contains("bundle")) {
+        def executeTasks = getGradle().getStartParameter().getTaskRequests()[0]["args"]
+        println "> Task :${project.name}:Task Start Params : $executeTasks"
+        def taskName = null
+        executeTasks.each {
+            def name = it.toString().toLowerCase(Locale.ENGLISH)
+            if (name.contains("bundle") && name.contains("release")) {
+                taskName = it.toString()
+            }
+        }
+        println "> Task :${project.name}:Task Start Bundle : $taskName"
+        if (taskName != null) {
             def index = taskName.lastIndexOf(":")
             if (index > -1) {
                 taskName = taskName.substring(index + 1)
@@ -995,7 +1005,7 @@ def openBundleReleaseDir(String taskName) {
     }
     if (isContainBundleRelease(taskName)) {
         try {
-            def openCmd = org.gradle.internal.os.OperatingSystem.current().isWindows() ? "explorer.exe" : "open"
+            def openCmd = isWindows() ? "explorer.exe" : "open"
             def outputPath = new File(project.buildDir, "outputs/bundle")
             def outputReleasePath = new File(outputPath, "release")
             if (outputReleasePath.exists()) {

@@ -139,6 +139,10 @@
       transition: background-color 0.2s;
     }
 
+    .copy-btn + .copy-btn {
+      margin-left: 4px;
+    }
+
     .copy-btn:hover {
       background-color: #005fa3;
     }
@@ -146,7 +150,7 @@
     .copied-label {
       color: #22a100;
       font-size: 13px;
-      margin-left: 8px;
+      margin-left: 4px;
       visibility: hidden;
     }
 
@@ -350,12 +354,64 @@
 
     function copyToClipboard(text, buttonElement) {
       navigator.clipboard.writeText(text).then(() => {
-        const label = buttonElement.nextElementSibling;
+        const label = buttonElement.parentElement.querySelector('.copied-label');
         label.style.visibility = 'visible';
         setTimeout(() => {
           label.style.visibility = 'hidden';
         }, 1500);
       });
+    }
+
+    function viewGradleFile(fileUrl, filePath) {
+      fetch(fileUrl)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then(content => {
+          const previewWindow = window.open('', '_blank');
+          if (!previewWindow) return;
+
+          previewWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title></title>
+              <style>
+                body {
+                  margin: 0;
+                  padding: 16px;
+                  background: #f4f6f9;
+                  color: #333;
+                  font-family: Consolas, "Courier New", monospace;
+                }
+                pre {
+                  margin: 0;
+                  padding: 16px;
+                  background: #fff;
+                  border-radius: 8px;
+                  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                  white-space: pre-wrap;
+                  word-break: break-word;
+                }
+              </style>
+            </head>
+            <body>
+              <pre id="gradleContent"></pre>
+            </body>
+            </html>
+          `);
+          previewWindow.document.title = filePath;
+          previewWindow.document.getElementById('gradleContent').textContent = content;
+          previewWindow.document.close();
+        })
+        .catch(error => {
+          console.error(`Error fetching the gradle file ${filePath}:`, error);
+        });
     }
 
     // 主渲染函数
@@ -387,6 +443,9 @@
         const fullUrl = base + file.path;
         const icon = getFileIcon(file.path);
         const isFolder = file.path.endsWith('/');
+        const viewButtonHtml = !isFolder && file.path.endsWith('.gradle')
+          ? `<button class="copy-btn" onclick="viewGradleFile('${fullUrl}', '${file.path}')">查看</button>`
+          : '';
 
         row.innerHTML = `
           <td data-label="文件路径">
@@ -396,7 +455,7 @@
           <td data-label="大小">${isFolder ? '-' : file.size}</td>
           <td data-label="修改时间">${file.modified_time}</td>
           <td data-label="操作">
-            ${isFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${fullUrl}', this)">复制</button>
+            ${isFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${fullUrl}', this)">复制</button>${viewButtonHtml}
             <span class="copied-label">已复制</span>`}
           </td>
         `;
@@ -422,6 +481,9 @@
             const childFullUrl = base + childFile.path;
             const childIcon = getFileIcon(childFile.path);
             const childIsFolder = childFile.path.endsWith('/');
+            const childViewButtonHtml = !childIsFolder && childFile.path.endsWith('.gradle')
+              ? `<button class="copy-btn" onclick="viewGradleFile('${childFullUrl}', '${childFile.path}')">查看</button>`
+              : '';
 
             childRow.innerHTML = `
               <td data-label="文件路径">
@@ -431,7 +493,7 @@
               <td data-label="大小">${childIsFolder ? '-' : childFile.size}</td>
               <td data-label="修改时间">${childFile.modified_time}</td>
               <td data-label="操作">
-                ${childIsFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${childFullUrl}', this)">复制</button>
+                ${childIsFolder ? '' : `<button class="copy-btn" onclick="copyToClipboard('${childFullUrl}', this)">复制</button>${childViewButtonHtml}
                 <span class="copied-label">已复制</span>`}
               </td>
             `;
@@ -524,6 +586,9 @@
 
           const fullUrl = base + file.path;
           const icon = getFileIcon(file.path);
+          const viewButtonHtml = file.path.endsWith('.gradle')
+            ? `<button class="copy-btn" onclick="viewGradleFile('${fullUrl}', '${file.path}')">查看</button>`
+            : '';
 
           fileRow.innerHTML = `
             <td data-label="文件路径">
@@ -534,6 +599,7 @@
             <td data-label="修改时间">${file.modified_time}</td>
             <td data-label="操作">
               <button class="copy-btn" onclick="copyToClipboard('${fullUrl}', this)">复制</button>
+              ${viewButtonHtml}
               <span class="copied-label">已复制</span>
             </td>
           `;
