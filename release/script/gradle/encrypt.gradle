@@ -61,7 +61,7 @@ def mavenUrls = [
         "https://android-sdk.is.com/",
         "https://artifact.bytedance.com/repository/pangle",
         "https://artifacts.applovin.com/android",
-        "https://artifactory.verizonmedia.com/artifactory/maven",
+        // "https://artifactory.verizonmedia.com/artifactory/maven",
 ]
 try {
     def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
