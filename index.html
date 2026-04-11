@@ -290,7 +290,7 @@
     }
 
     function isAdsGradle(filePath) {
-      const regex = /^ads-\d+\.\d+\.\d+\.gradle$/;
+      const regex = /^ads-\d+\.\d+\.\d+(?:\.[^.]+)?\.gradle$/;
       const fileName = filePath.split(/[/\\]/).pop();
       return regex.test(fileName);
     }
