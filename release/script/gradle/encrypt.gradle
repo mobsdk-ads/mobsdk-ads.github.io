@@ -64,7 +64,7 @@ def mavenUrls = [
         // "https://artifactory.verizonmedia.com/artifactory/maven",
 ]
 try {
-    def useInternalMaven = ext.has("use_internal_maven") ? ext["use_internal_maven"] : true
+    def useInternalMaven = ext.has("useDynamicMaven") ? ext["useDynamicMaven"] : true
     if (useInternalMaven) {
         def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
         project.rootProject.allprojects.repositories.each {
