@@ -352,6 +352,20 @@ def isWindows() {
     return org.gradle.internal.os.OperatingSystem.current().isWindows()
 }
 
+def isMacOs() {
+    return org.gradle.internal.os.OperatingSystem.current().isMacOsX()
+}
+
+def getOpenFolderCmd(String path) {
+    if (isWindows()) {
+        return ["explorer.exe", path]
+    } else if (isMacOs()) {
+        return ["open", path]
+    } else {
+        return ["xdg-open", path]
+    }
+}
+
 /**
  * 打开Release目录
  * @param flavor
@@ -362,13 +376,13 @@ def openReleaseDir(flavor) {
         return
     }
     try {
-        def openCmd = isWindows() ? "explorer.exe" : "open"
         def outputDir = String.format("outputs/apk/%srelease", ((flavor != null && flavor.trim().length() > 0) ? flavor + "/" : ""))
         def outputPath = new File(project.buildDir, outputDir)
-        def cmd = openCmd + outputPath
+        def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
         cmd.execute()
-        println ":${project.name}:openReleaseDir [${outputPath}]"
+        println ":${project.name}:openReleaseDir [${cmd}]"
     } catch (Exception e) {
+        println ":${project.name}:openReleaseDir error : " + e.getMessage()
     }
 }
 
@@ -911,6 +925,7 @@ def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
 
 
 def checkBundleFile(flavor) {
+    println ""
     def flavorName = flavor != null ? flavor : ""
     def outputFile = null
     def outputDir = getBuildDir()
@@ -937,13 +952,12 @@ def checkBundleFile(flavor) {
             if (srcMapping.exists()) {
                 def dstMappingName = outputName.replaceAll(".aab", ".txt")
                 def dstMappingFile = new File(tmpDir, dstMappingName)
-                println "dst mapping : $dstMappingFile"
+                println "> Task :${project.name}:checkBundleFile [$flavor] dst mapping : $dstMappingFile"
                 srcMapping.renameTo(dstMappingFile)
             }
         }
     } catch (Exception e) {
     }
-    println ""
     println "> Task :${project.name}:checkBundleFile [$flavor] flavorName : " + flavorName
     println "> Task :${project.name}:checkBundleFile [$flavor] outputDir : " + outputDir
     println "> Task :${project.name}:checkBundleFile [$flavor] outputFile : " + outputFile
@@ -1008,17 +1022,17 @@ def openBundleReleaseDir(String taskName) {
     }
     if (isContainBundleRelease(taskName)) {
         try {
-            def openCmd = isWindows() ? "explorer.exe" : "open"
             def outputPath = new File(project.buildDir, "outputs/bundle")
             def outputReleasePath = new File(outputPath, "release")
             if (outputReleasePath.exists()) {
                 outputPath = outputReleasePath
             }
-            def cmd = openCmd + " " + outputPath
+            def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
             cmd.execute()
             println ""
-            println "> Task :${project.name}:openBundleDir [${outputPath}]"
+            println "> Task :${project.name}:openBundleDir [${cmd}]"
         } catch (Exception e) {
+            println ":${project.name}:openReleaseDir error : " + e.getMessage()
         }
     }
 }
