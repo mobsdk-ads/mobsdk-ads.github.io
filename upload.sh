@@ -2,6 +2,8 @@
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 COMMIT_MESSAGE="${*:-1. upload maven files}"
+echo "Upload Bash Message >>>"
+echo Commit Message : $COMMIT_MESSAGE
 
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "There are file changes (modified, added, or deleted)"
