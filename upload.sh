@@ -14,6 +14,9 @@ fi
 
 echo "Upload script start to execute ..."
 
+mkdirs $SCRIPT_DIR/release/logs
+echo $COMMIT_MESSAGE > $SCRIPT_DIR/release/logs/commit_message.log
+
 $SCRIPT_DIR/config/file_list.sh
 
 WORKDIR=$(pwd)
