@@ -14,6 +14,7 @@ fi
 
 echo "Upload script start to execute ..."
 
+echo "Write commit message to file ..."
 mkdir -p $SCRIPT_DIR/release/logs
 echo $COMMIT_MESSAGE > $SCRIPT_DIR/release/logs/commit_message.log
 
