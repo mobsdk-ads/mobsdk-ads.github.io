@@ -1811,6 +1811,7 @@ def parseApkInfo(apkFile) {
 }
 
 def analyzingApkInfo(flavorName, apkFile) {
+    def startTime = System.currentTimeMillis()
     println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] finalApkFile : [" + (apkFile == null ? "null" : apkFile.getName()) + "]"
     if (apkFile == null || !apkFile.exists()) {
         println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] apkFile is not exist"
@@ -1824,23 +1825,27 @@ def analyzingApkInfo(flavorName, apkFile) {
             println " " + item.key + " | " + item.value
         }
         println separator
-        def fileName = apkFile.getName()
-        def outputName = fileName.replace("release.apk", "apkinfo.txt")
-        File outputFile = new File(apkFile.getParentFile(), outputName)
-        outputFile.withWriter("UTF-8") { writer ->
-            apkInfo.infoList.each { item ->
+        if (false) {
+            def fileName = apkFile.getName()
+            def outputName = fileName.replace("release.apk", "apkinfo.txt")
+            File outputFile = new File(apkFile.getParentFile(), outputName)
+            outputFile.withWriter("UTF-8") { writer ->
+                apkInfo.infoList.each { item ->
+                    writer.write(separator)
+                    writer.write(System.lineSeparator())
+                    writer.write(" " + item.key + " | " + item.value)
+                    writer.write(System.lineSeparator())
+                }
                 writer.write(separator)
-                writer.write(System.lineSeparator())
-                writer.write(" " + item.key + " | " + item.value)
-                writer.write(System.lineSeparator())
             }
-            writer.write(separator)
+            println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
         }
-        println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
     } catch (Exception e) {
         println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] error : " + e
         e.printStackTrace()
     }
+    def endTime = System.currentTimeMillis()
+    println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] consume time : " + (endTime - startTime)
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 def newEncryptStringTask() {
