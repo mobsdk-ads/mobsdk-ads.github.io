@@ -15,8 +15,16 @@ fi
 echo "Upload script start to execute ..."
 
 echo "Write commit message to file ..."
+#记录日志文件，新内容放在前面
 mkdir -p $SCRIPT_DIR/release/logs
-echo $COMMIT_MESSAGE > $SCRIPT_DIR/release/logs/commit_message.log
+current_datetime=$(date "+%Y-%m-%d %H:%M:%S")
+commit_message_file=$SCRIPT_DIR/release/logs/commit_message.log
+touch $commit_message_file
+{
+  echo [$current_datetime]
+  echo "$COMMIT_MESSAGE"
+  cat $commit_message_file
+} > tmp.txt && mv tmp.txt $commit_message_file
 
 $SCRIPT_DIR/config/file_list.sh
 
