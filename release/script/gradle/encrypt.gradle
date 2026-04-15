@@ -279,7 +279,7 @@ def delDebugFile() {
     printOutput(process)
 }
 
-def getAaptFile() {
+def checkAndroidAapt() {
     def sdkDir = null
     try {
         Properties properties = new Properties()
@@ -291,27 +291,27 @@ def getAaptFile() {
     }
     if (sdkDir == null || !new File(sdkDir).exists()) {
         if (sdkDir == null) {
-            println ":${project.name}:getAaptFile sdkDir == null, Use ANDROID_SDK_ROOT"
+            println "> Task :${project.name}:checkAndroidAapt sdk.dir is null, Check ANDROID_SDK_ROOT"
         } else {
-            println ":${project.name}:getAaptFile sdkDir is not exist, Use ANDROID_SDK_ROOT"
+            println "> Task :${project.name}:checkAndroidAapt sdk.dir is not exist, Check ANDROID_SDK_ROOT"
         }
         sdkDir = System.getenv("ANDROID_SDK_ROOT")
     }
     if (sdkDir == null || !new File(sdkDir).exists()) {
         if (sdkDir == null) {
-            println ":${project.name}:getAaptFile sdkDir == null, Use ANDROID_HOME"
+            println "> Task :${project.name}:checkAndroidAapt ANDROID_SDK_ROOT is null, Check ANDROID_HOME"
         } else {
-            println ":${project.name}:getAaptFile sdkDir is not exist, Use ANDROID_HOME"
+            println "> Task :${project.name}:checkAndroidAapt ANDROID_SDK_ROOT is not exist, Check ANDROID_HOME"
         }
         sdkDir = System.getenv("ANDROID_HOME")
     }
-    // println "> Task :${project.name}:getAaptFile sdkDir : " + sdkDir
+    println "> Task :${project.name}:checkAndroidAapt Android Sdk Root : " + sdkDir
     if (sdkDir == null) {
-        println "> Task :${project.name}:getAaptFile sdkDir == null"
+        println "> Task :${project.name}:checkAndroidAapt Android Sdk Root is null"
         return null
     }
     if (!new File(sdkDir).exists()) {
-        println "> Task :${project.name}:getAaptFile sdkDir is not exist"
+        println "> Task :${project.name}:checkAndroidAapt Android Sdk Root is not exist"
         return null
     }
     def exe = ""
@@ -336,7 +336,7 @@ def getAaptFile() {
         }
     }
     def aaptFile = buildToolDir + File.separator + buildToolVersionDir + File.separator + "aapt" + exe
-    // println "> Task :${project.name}:getAaptFile aaptFile : " + aaptFile
+    // println "> Task :${project.name}:checkAndroidAapt aaptFile : " + aaptFile
     return aaptFile
 }
 
@@ -752,7 +752,7 @@ def removeBundleMetaData(flavor) {
         println "> Task :${project.name}:removeBundleMetaData [$flavor] outputFile : " + outputFile
         println "> Task :${project.name}:removeBundleMetaData [$flavor] outputFiles : " + outputDir.list()
         if (outputFile != null && outputFile.exists()) {
-            def aaptFile = getAaptFile()
+            def aaptFile = checkAndroidAapt()
             if (aaptFile != null && new File(aaptFile).exists()) {
                 println "> Task :${project.name}:removeBundleMetaData [$flavor] aapt file : $aaptFile"
                 def cmdList = ["aapt", "r", outputFile.absolutePath]
@@ -1230,6 +1230,7 @@ def executeTransformAab2Apk(signConfig, finalBundleFile, bundleToolPath, flavorN
         println "> Task :${project.name}:transformAab2Apk [" + flavorName + "] error : " + e
         println ""
     }
+    analyzingApkInfo(flavorName, finalApkFile)
 }
 
 def copyFile(srcFile, dstFile) {
@@ -1282,7 +1283,7 @@ def getAppendCmdListByAapt(packageFile, aaptFile, fileList) {
 }
 
 def appendFilesIntoApk(workDir, packageFile, fileList) {
-    def aaptFile = getAaptFile()
+    def aaptFile = checkAndroidAapt()
     def cmd = getAppendCmdListByAapt(packageFile, aaptFile, fileList)
     if (cmd == null || cmd.isEmpty()) {
         println "> Task :${project.name}:appendFilesIntoApk Error [cmd is empty]"
@@ -1441,6 +1442,405 @@ def getReleaseSignConfig(flavor) {
         }
     }
     return signConfig
+}
+//////////////////////////////////////////////////////////////////////////////////////////
+def parseApkInfo(apkFile) {
+    def infoList = []
+    def putInfo = { String key, Object value ->
+        infoList.add([key: key, value: value == null ? "" : String.valueOf(value)])
+    }
+    def formatHex = { byte[] bytes ->
+        if (bytes == null || bytes.length == 0) {
+            return ""
+        }
+        return bytes.collect { String.format("%02X", it & 0xFF) }.join(":")
+    }
+    def parseHexBytes = { String hexText ->
+        if (hexText == null) {
+            return null
+        }
+        String normalized = hexText.replace(":", "").replace(" ", "").trim()
+        if (normalized.length() == 0) {
+            return null
+        }
+        if (normalized.length() % 2 != 0) {
+            throw new IllegalArgumentException("invalid hex length: " + normalized.length())
+        }
+        byte[] result = new byte[normalized.length() / 2]
+        for (int i = 0; i < normalized.length(); i += 2) {
+            result[i / 2] = (byte) Integer.parseInt(normalized.substring(i, i + 2), 16)
+        }
+        return result
+    }
+    def digestFile = { File file, String algorithm ->
+        MessageDigest digest = MessageDigest.getInstance(algorithm)
+        file.withInputStream { input ->
+            byte[] buffer = new byte[8192]
+            int len
+            while ((len = input.read(buffer)) > 0) {
+                digest.update(buffer, 0, len)
+            }
+        }
+        return digest.digest()
+    }
+    def formatFileSize = { long length ->
+        if (length <= 0L) {
+            return "0.00M"
+        }
+        return String.format(Locale.US, "%.2fM", length / 1024D / 1024D)
+    }
+    def parseAaptValue = { String text, String regex ->
+        def matcher = (text =~ regex)
+        if (matcher.find()) {
+            return matcher.group(1)
+        }
+        return ""
+    }
+    def parseAaptValues = { String text, String regex ->
+        def values = []
+        def matcher = (text =~ regex)
+        while (matcher.find()) {
+            values.add(matcher.group(1))
+        }
+        return values
+    }
+    def formatPlatformList = { List<String> platforms ->
+        if (platforms == null || platforms.isEmpty()) {
+            return "无"
+        }
+        return platforms.join(",")
+    }
+
+    def parseManifestBoolean = { String text, String attrName ->
+        def matcher = (text =~ ("A: android:" + attrName + "\\([^)]*\\)=((?:\\(type [^)]*\\))?(?:0x[0-9a-fA-F]+|true|false))"))
+        if (matcher.find()) {
+            String raw = matcher.group(1)
+            raw = raw.replaceAll("\\(type [^)]*\\)", "").trim().toLowerCase(Locale.ROOT)
+            if ("true".equals(raw) || "0xffffffff".equals(raw) || "0x1".equals(raw)) {
+                return "true"
+            }
+            if ("false".equals(raw) || "0x0".equals(raw)) {
+                return "false"
+            }
+            return raw
+        }
+        return ""
+    }
+
+    String aaptOutput = ""
+    String manifestOutput = ""
+    def aaptFile = checkAndroidAapt()
+    if (aaptFile != null && new File(aaptFile).exists()) {
+        def process = [aaptFile, "dump", "badging", apkFile.absolutePath].execute()
+        process.waitFor(30, TimeUnit.SECONDS)
+        aaptOutput = process.in.text
+
+        def manifestProcess = [aaptFile, "dump", "xmltree", apkFile.absolutePath, "AndroidManifest.xml"].execute()
+        manifestProcess.waitFor(30, TimeUnit.SECONDS)
+        manifestOutput = manifestProcess.in.text
+    }
+
+    def appLabel = parseAaptValue(aaptOutput, /application-label:'([^']*)'/)
+    if (!appLabel) {
+        appLabel = parseAaptValue(aaptOutput, /application:\s+label='([^']*)'/)
+    }
+    def packageName = parseAaptValue(aaptOutput, /package:\s+name='([^']*)'/)
+    def launchActivity = ""
+    if (manifestOutput) {
+        def blockLines = []
+        def currentBlock = null
+        manifestOutput.eachLine { line ->
+            String trimLine = line.trim()
+            if (trimLine.startsWith("E: activity ") || trimLine.startsWith("E: activity-alias ")) {
+                if (currentBlock != null) {
+                    blockLines.add(currentBlock)
+                }
+                currentBlock = []
+            }
+            if (currentBlock != null) {
+                currentBlock.add(trimLine)
+            }
+        }
+        if (currentBlock != null) {
+            blockLines.add(currentBlock)
+        }
+        for (def block : blockLines) {
+            String blockText = block.join("\n")
+            boolean hasMain = blockText.contains("android.intent.action.MAIN")
+            boolean hasLauncher = blockText.contains("android.intent.category.LAUNCHER")
+            if (hasMain && hasLauncher) {
+                def matcher = (blockText =~ /A: android:name\([^)]*\)=\"([^\"]+)\"/)
+                if (matcher.find()) {
+                    launchActivity = matcher.group(1)
+                    break
+                }
+            }
+        }
+    }
+    if (launchActivity && launchActivity.startsWith(".") && packageName) {
+        launchActivity = packageName + launchActivity
+    }
+
+    def versionCode = parseAaptValue(aaptOutput, /versionCode='([^']*)'/)
+    def versionName = parseAaptValue(aaptOutput, /versionName='([^']*)'/)
+    def minSdk = parseAaptValue(aaptOutput, /sdkVersion:'([^']*)'/)
+    def targetSdk = parseAaptValue(aaptOutput, /targetSdkVersion:'([^']*)'/)
+    def fileSize = formatFileSize(apkFile.length())
+    def allPermissions = parseAaptValues(aaptOutput, /uses-permission(?:-[^:]*)?:\s+name='([^']+)'/)
+    def highRiskPermissionSet = [
+            "android.permission.QUERY_ALL_PACKAGES",
+            "android.permission.SYSTEM_ALERT_WINDOW",
+            "android.permission.REQUEST_INSTALL_PACKAGES",
+            "android.permission.MANAGE_EXTERNAL_STORAGE",
+            "android.permission.READ_PHONE_STATE",
+            "android.permission.READ_PHONE_NUMBERS",
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.RECORD_AUDIO",
+            "android.permission.CAMERA",
+            "android.permission.READ_CONTACTS",
+            "android.permission.WRITE_CONTACTS",
+            "android.permission.READ_CALENDAR",
+            "android.permission.WRITE_CALENDAR",
+    ] as Set
+    def highRiskPermissions = allPermissions.findAll { highRiskPermissionSet.contains(it) }.collect { it.replace("android.permission.", "") }
+    def debuggable = parseManifestBoolean(manifestOutput, "debuggable")
+    def usesCleartextTraffic = parseManifestBoolean(manifestOutput, "usesCleartextTraffic")
+    if (!debuggable) {
+        debuggable = "false"
+    }
+    if (!usesCleartextTraffic) {
+        try {
+            usesCleartextTraffic = Integer.parseInt(targetSdk) >= 28 ? "false" : "true"
+        } catch (Exception ignored) {
+            usesCleartextTraffic = "false"
+        }
+    }
+    def toEnabledStatus = { String value ->
+        if ("true".equalsIgnoreCase(value)) {
+            return "开启"
+        }
+        if ("false".equalsIgnoreCase(value)) {
+            return "关闭"
+        }
+        return value
+    }
+
+    putInfo("应用名称", appLabel)
+    putInfo("应用入口", launchActivity)
+    putInfo("应用包名", packageName)
+    putInfo("应用版本", versionCode)
+    putInfo("应用版本", versionName)
+    putInfo("最小版本", minSdk)
+    putInfo("目标版本", targetSdk)
+    putInfo("文件大小", fileSize)
+
+    putInfo("高危权限", formatPlatformList(highRiskPermissions))
+    putInfo("调试开关", toEnabledStatus(debuggable))
+    putInfo("明文传输", toEnabledStatus(usesCleartextTraffic))
+
+    def adPlatformRules = [
+            [name: "Applovin", pattern: ["com.applovin.", "applovinfullscreenactivity", "mediationdebuggeractivity"]],
+            [name: "BidMachine", pattern: ["io.bidmachine."]],
+            [name: "Bigo", pattern: ["sg.bigo.ads.", "com.bigossp."]],
+            [name: "Chartboost", pattern: ["com.chartboost.", "cbimpressionactivity"]],
+            [name: "Facebook", pattern: ["com.facebook.ads."]],
+            [name: "Fyber", pattern: ["com.fyber.", "com.inneractive."]],
+            [name: "Google", pattern: ["com.google.android.gms.ads.", "com.google.ads.", "adactivity"]],
+            [name: "IronSource", pattern: ["com.ironsource.", "com.supersonicads."]],
+            [name: "Mintegral", pattern: ["com.mbridge.msdk.", "com.mintegral."]],
+            [name: "MyTarget", pattern: ["com.my.target."]],
+            [name: "Pangle", pattern: ["com.bytedance.sdk.openadsdk.", "com.pgl.ssdk.", "com.pangle.global."]],
+            [name: "Smaato", pattern: ["com.smaato."]],
+            [name: "TradPlusAdx", pattern: ["com.tradplus.", "tp.exchange"]],
+            [name: "Unity3D", pattern: ["com.unity3d.services.ads.", "com.unity3d.ads."]],
+            [name: "Vungle", pattern: ["com.vungle.", "vungle.warren."]],
+            [name: "Verve", pattern: ["net.pubnative.", "verve."]],
+            [name: "Yandex", pattern: ["com.yandex.mobile.ads."]],
+    ]
+    def matchedPlatforms = []
+    def manifestActivityNames = []
+    if (manifestOutput) {
+        def blockLines = []
+        def currentBlock = null
+        manifestOutput.eachLine { line ->
+            String trimLine = line.trim()
+            if (trimLine.startsWith("E: activity ") || trimLine.startsWith("E: activity-alias ")) {
+                if (currentBlock != null) {
+                    blockLines.add(currentBlock)
+                }
+                currentBlock = []
+            }
+            if (currentBlock != null) {
+                currentBlock.add(trimLine)
+            }
+        }
+        if (currentBlock != null) {
+            blockLines.add(currentBlock)
+        }
+        blockLines.each { block ->
+            String blockText = block.join("\n")
+            def matcher = (blockText =~ /A: android:name\([^)]*\)=\"([^\"]+)\"/)
+            if (matcher.find()) {
+                String activityName = matcher.group(1)
+                if (activityName.startsWith(".") && packageName) {
+                    activityName = packageName + activityName
+                }
+                manifestActivityNames.add(activityName.toLowerCase(Locale.ROOT))
+            }
+        }
+    }
+    adPlatformRules.each { rule ->
+        boolean matched = manifestActivityNames.any { activityName ->
+            rule.pattern.any { keyword -> activityName.contains(keyword) }
+        }
+        if (matched) {
+            matchedPlatforms.add(rule.name)
+        }
+    }
+    putInfo("广告平台", formatPlatformList(matchedPlatforms))
+
+    byte[] certMd5 = null
+    byte[] certSha1 = null
+    byte[] certSha256 = null
+    String certDn = ""
+    def signSchemes = []
+    def apksignerFile = null
+    if (aaptFile != null) {
+        def aaptParent = new File(aaptFile).getParentFile()
+        if (aaptParent != null) {
+            def apksignerName = isWindows() ? "apksigner.bat" : "apksigner"
+            def candidate = new File(aaptParent, apksignerName)
+            if (candidate.exists()) {
+                apksignerFile = candidate
+            }
+        }
+    }
+    if (apksignerFile != null) {
+        def cmdList = isWindows() ?
+                ["cmd", "/c", apksignerFile.absolutePath, "verify", "--verbose", "--print-certs", apkFile.absolutePath] :
+                [apksignerFile.absolutePath, "verify", "--verbose", "--print-certs", apkFile.absolutePath]
+        def process = cmdList.execute()
+        process.waitFor(30, TimeUnit.SECONDS)
+        def signerOutput = process.in.text
+        if ((signerOutput =~ /Verified using v1 scheme.*:\s*true/).find()) {
+            signSchemes.add("V1")
+        }
+        if ((signerOutput =~ /Verified using v2 scheme.*:\s*true/).find()) {
+            signSchemes.add("V2")
+        }
+        if ((signerOutput =~ /Verified using v3 scheme(?!\.1).*\:\s*true/).find()) {
+            signSchemes.add("V3")
+        }
+        if ((signerOutput =~ /Verified using v3\.1 scheme.*:\s*true/).find()) {
+            signSchemes.add("V3.1")
+        }
+        if ((signerOutput =~ /Verified using v4 scheme.*:\s*true/).find()) {
+            signSchemes.add("V4")
+        }
+        String md5Text = parseAaptValue(signerOutput, /Signer #\d+ certificate MD5 digest:\s*([0-9A-Fa-f:]+)/)
+        String sha1Text = parseAaptValue(signerOutput, /Signer #\d+ certificate SHA-1 digest:\s*([0-9A-Fa-f:]+)/)
+        String sha256Text = parseAaptValue(signerOutput, /Signer #\d+ certificate SHA-256 digest:\s*([0-9A-Fa-f:]+)/)
+        certDn = parseAaptValue(signerOutput, /Signer #\d+ certificate DN:\s*(.+)/)
+        if (md5Text) {
+            certMd5 = parseHexBytes(md5Text)
+        }
+        if (sha1Text) {
+            certSha1 = parseHexBytes(sha1Text)
+        }
+        if (sha256Text) {
+            certSha256 = parseHexBytes(sha256Text)
+        }
+    }
+    if (certSha1 == null || certSha256 == null || certMd5 == null || !certDn) {
+        java.util.jar.JarFile jarFile = new java.util.jar.JarFile(apkFile, true)
+        try {
+            byte[] buffer = new byte[8192]
+            def entries = jarFile.entries()
+            while (entries.hasMoreElements() && (certSha1 == null || certSha256 == null || certMd5 == null || !certDn)) {
+                java.util.jar.JarEntry entry = entries.nextElement()
+                if (entry.isDirectory() || entry.getName().startsWith("META-INF/")) {
+                    continue
+                }
+                InputStream inputStream = jarFile.getInputStream(entry)
+                try {
+                    while (inputStream.read(buffer) != -1) {
+                    }
+                } finally {
+                    inputStream.close()
+                }
+                def certificates = entry.getCertificates()
+                if (certificates != null && certificates.length > 0 && certificates[0] instanceof java.security.cert.X509Certificate) {
+                    java.security.cert.X509Certificate certificate = certificates[0]
+                    byte[] certBytes = certificate.getEncoded()
+                    certMd5 = MessageDigest.getInstance("MD5").digest(certBytes)
+                    certSha1 = MessageDigest.getInstance("SHA-1").digest(certBytes)
+                    certSha256 = MessageDigest.getInstance("SHA-256").digest(certBytes)
+                    certDn = certificate.getSubjectX500Principal().getName()
+                }
+            }
+        } finally {
+            jarFile.close()
+        }
+    }
+
+    putInfo("签名摘要", formatHex(certMd5))
+    putInfo("签名哈希", formatHex(certSha1))
+    putInfo("签名哈希", formatHex(certSha256))
+    putInfo("签名详情", certDn)
+    putInfo("散列密钥", certSha1 == null ? "" : certSha1.encodeBase64().toString())
+
+    putInfo("文件摘要", formatHex(digestFile(apkFile, "MD5")))
+    putInfo("文件哈希", formatHex(digestFile(apkFile, "SHA-1")))
+    putInfo("文件哈希", formatHex(digestFile(apkFile, "SHA-256")))
+
+    putInfo("签名方案", formatPlatformList(signSchemes))
+
+    return [
+            appLabel      : appLabel,
+            launchActivity: launchActivity,
+            packageName   : packageName,
+            versionCode   : versionCode,
+            versionName   : versionName,
+            minSdk        : minSdk,
+            targetSdk     : targetSdk,
+            fileSize      : fileSize,
+            infoList      : infoList,
+    ]
+}
+
+def analyzingApkInfo(flavorName, apkFile) {
+    println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] finalApkFile : [" + (apkFile == null ? "null" : apkFile.getName()) + "]"
+    if (apkFile == null || !apkFile.exists()) {
+        println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] apkFile is not exist"
+        return
+    }
+    try {
+        def apkInfo = parseApkInfo(apkFile)
+        def separator = "------------------------------------------------------------------------------------------------------------------------------------"
+        println separator
+        apkInfo.infoList.each { item ->
+            println " " + item.key + " | " + item.value
+        }
+        println separator
+        def fileName = apkFile.getName()
+        def outputName = fileName.replace("release.apk", "apkinfo.txt")
+        File outputFile = new File(apkFile.getParentFile(), outputName)
+        outputFile.withWriter("UTF-8") { writer ->
+            apkInfo.infoList.each { item ->
+                writer.write(separator)
+                writer.write(System.lineSeparator())
+                writer.write(" " + item.key + " | " + item.value)
+                writer.write(System.lineSeparator())
+            }
+            writer.write(separator)
+        }
+        println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
+    } catch (Exception e) {
+        println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] error : " + e
+        e.printStackTrace()
+    }
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 def newEncryptStringTask() {
@@ -2011,3 +2411,4 @@ class Utils {
         return "";
     }
 }
+
