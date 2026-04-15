@@ -1446,6 +1446,13 @@ def getReleaseSignConfig(flavor) {
 //////////////////////////////////////////////////////////////////////////////////////////
 def parseApkInfo(apkFile) {
     def infoList = []
+    def phaseCost = [:]
+    def phaseStartAt = { ->
+        System.currentTimeMillis()
+    }
+    def phaseEnd = { String phaseName, long startAt ->
+        phaseCost[phaseName] = System.currentTimeMillis() - startAt
+    }
     def putInfo = { String key, Object value ->
         infoList.add([key: key, value: value == null ? "" : String.valueOf(value)])
     }
@@ -1472,16 +1479,37 @@ def parseApkInfo(apkFile) {
         }
         return result
     }
-    def digestFile = { File file, String algorithm ->
-        MessageDigest digest = MessageDigest.getInstance(algorithm)
+    def digestCache = [:]
+    def digestFileList = { File file, List<String> algorithms ->
+        def cacheKey = file.absolutePath
+        if (digestCache.containsKey(cacheKey)) {
+            return digestCache[cacheKey]
+        }
+        def digestStartAt = phaseStartAt()
+        def digests = [:]
+        algorithms.each { algorithm ->
+            digests[algorithm] = MessageDigest.getInstance(algorithm)
+        }
         file.withInputStream { input ->
             byte[] buffer = new byte[8192]
             int len
             while ((len = input.read(buffer)) > 0) {
-                digest.update(buffer, 0, len)
+                digests.values().each { digest ->
+                    digest.update(buffer, 0, len)
+                }
             }
         }
-        return digest.digest()
+        def results = [:]
+        digests.each { algorithm, digest ->
+            results[algorithm] = digest.digest()
+        }
+        digestCache[cacheKey] = results
+        phaseEnd("fileDigest", digestStartAt)
+        return results
+    }
+    def digestFile = { File file, String algorithm ->
+        def digestMap = digestFileList(file, ["MD5", "SHA-1", "SHA-256"])
+        return digestMap[algorithm]
     }
     def formatFileSize = { long length ->
         if (length <= 0L) {
@@ -1526,18 +1554,67 @@ def parseApkInfo(apkFile) {
         }
         return ""
     }
+    def executeCommand = { List<String> cmdList, long timeoutSeconds ->
+        def output = new StringBuffer()
+        def error = new StringBuffer()
+        def process = cmdList.execute()
+        process.consumeProcessOutput(output, error)
+        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+        if (!finished) {
+            process.destroy()
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                process.waitFor()
+            }
+        }
+        return [
+                command  : cmdList.join(" "),
+                finished : finished,
+                exitValue: finished ? process.exitValue() : -1,
+                output   : output.toString(),
+                error    : error.toString(),
+        ]
+    }
 
     String aaptOutput = ""
     String manifestOutput = ""
     def aaptFile = checkAndroidAapt()
     if (aaptFile != null && new File(aaptFile).exists()) {
-        def process = [aaptFile, "dump", "badging", apkFile.absolutePath].execute()
-        process.waitFor(30, TimeUnit.SECONDS)
-        aaptOutput = process.in.text
+        def aaptBadgingStartAt = phaseStartAt()
+        def badgingResult = executeCommand([aaptFile, "dump", "badging", apkFile.absolutePath], 30)
+        aaptOutput = badgingResult.output
+        if (!badgingResult.finished) {
+            putInfo("AAPT命令", "dump badging timeout")
+        }
+        if (badgingResult.exitValue != 0 && badgingResult.finished) {
+            println "> Task :${project.name}:analyzingApkInfo badging exitValue : " + badgingResult.exitValue
+        }
+        if (badgingResult.error != null && badgingResult.error.trim().length() > 0) {
+            String errorText = badgingResult.error.trim()
+            if (errorText.length() > 200) {
+                errorText = errorText.substring(0, 200) + "..."
+            }
+            println "> Task :${project.name}:analyzingApkInfo badging stderr : " + errorText
+        }
+        phaseEnd("aaptBadging", aaptBadgingStartAt)
 
-        def manifestProcess = [aaptFile, "dump", "xmltree", apkFile.absolutePath, "AndroidManifest.xml"].execute()
-        manifestProcess.waitFor(30, TimeUnit.SECONDS)
-        manifestOutput = manifestProcess.in.text
+        def aaptManifestStartAt = phaseStartAt()
+        def manifestResult = executeCommand([aaptFile, "dump", "xmltree", apkFile.absolutePath, "AndroidManifest.xml"], 30)
+        manifestOutput = manifestResult.output
+        if (!manifestResult.finished) {
+            putInfo("AAPT命令", "dump xmltree timeout")
+        }
+        if (manifestResult.exitValue != 0 && manifestResult.finished) {
+            println "> Task :${project.name}:analyzingApkInfo xmltree exitValue : " + manifestResult.exitValue
+        }
+        if (manifestResult.error != null && manifestResult.error.trim().length() > 0) {
+            String errorText = manifestResult.error.trim()
+            if (errorText.length() > 200) {
+                errorText = errorText.substring(0, 200) + "..."
+            }
+            println "> Task :${project.name}:analyzingApkInfo xmltree stderr : " + errorText
+        }
+        phaseEnd("aaptManifest", aaptManifestStartAt)
     }
 
     def appLabel = parseAaptValue(aaptOutput, /application-label:'([^']*)'/)
@@ -1546,39 +1623,39 @@ def parseApkInfo(apkFile) {
     }
     def packageName = parseAaptValue(aaptOutput, /package:\s+name='([^']*)'/)
     def launchActivity = ""
+    def manifestActivityNames = []
     if (manifestOutput) {
-        def blockLines = []
+        def manifestParseStartAt = phaseStartAt()
         def currentBlock = null
+        def flushActivityBlock = { List<String> blockLines ->
+            if (blockLines == null || blockLines.isEmpty()) {
+                return
+            }
+            String blockText = blockLines.join("\n")
+            def matcher = (blockText =~ /A: android:name\([^)]*\)=\"([^\"]+)\"/)
+            if (matcher.find()) {
+                String activityName = matcher.group(1)
+                if (activityName.startsWith(".") && packageName) {
+                    activityName = packageName + activityName
+                }
+                manifestActivityNames.add(activityName.toLowerCase(Locale.ROOT))
+                if (!launchActivity && blockText.contains("android.intent.action.MAIN") && blockText.contains("android.intent.category.LAUNCHER")) {
+                    launchActivity = activityName
+                }
+            }
+        }
         manifestOutput.eachLine { line ->
             String trimLine = line.trim()
             if (trimLine.startsWith("E: activity ") || trimLine.startsWith("E: activity-alias ")) {
-                if (currentBlock != null) {
-                    blockLines.add(currentBlock)
-                }
+                flushActivityBlock(currentBlock)
                 currentBlock = []
             }
             if (currentBlock != null) {
                 currentBlock.add(trimLine)
             }
         }
-        if (currentBlock != null) {
-            blockLines.add(currentBlock)
-        }
-        for (def block : blockLines) {
-            String blockText = block.join("\n")
-            boolean hasMain = blockText.contains("android.intent.action.MAIN")
-            boolean hasLauncher = blockText.contains("android.intent.category.LAUNCHER")
-            if (hasMain && hasLauncher) {
-                def matcher = (blockText =~ /A: android:name\([^)]*\)=\"([^\"]+)\"/)
-                if (matcher.find()) {
-                    launchActivity = matcher.group(1)
-                    break
-                }
-            }
-        }
-    }
-    if (launchActivity && launchActivity.startsWith(".") && packageName) {
-        launchActivity = packageName + launchActivity
+        flushActivityBlock(currentBlock)
+        phaseEnd("manifestParse", manifestParseStartAt)
     }
 
     def versionCode = parseAaptValue(aaptOutput, /versionCode='([^']*)'/)
@@ -1660,37 +1737,6 @@ def parseApkInfo(apkFile) {
             [name: "Yandex", pattern: ["com.yandex.mobile.ads."]],
     ]
     def matchedPlatforms = []
-    def manifestActivityNames = []
-    if (manifestOutput) {
-        def blockLines = []
-        def currentBlock = null
-        manifestOutput.eachLine { line ->
-            String trimLine = line.trim()
-            if (trimLine.startsWith("E: activity ") || trimLine.startsWith("E: activity-alias ")) {
-                if (currentBlock != null) {
-                    blockLines.add(currentBlock)
-                }
-                currentBlock = []
-            }
-            if (currentBlock != null) {
-                currentBlock.add(trimLine)
-            }
-        }
-        if (currentBlock != null) {
-            blockLines.add(currentBlock)
-        }
-        blockLines.each { block ->
-            String blockText = block.join("\n")
-            def matcher = (blockText =~ /A: android:name\([^)]*\)=\"([^\"]+)\"/)
-            if (matcher.find()) {
-                String activityName = matcher.group(1)
-                if (activityName.startsWith(".") && packageName) {
-                    activityName = packageName + activityName
-                }
-                manifestActivityNames.add(activityName.toLowerCase(Locale.ROOT))
-            }
-        }
-    }
     adPlatformRules.each { rule ->
         boolean matched = manifestActivityNames.any { activityName ->
             rule.pattern.any { keyword -> activityName.contains(keyword) }
@@ -1718,12 +1764,26 @@ def parseApkInfo(apkFile) {
         }
     }
     if (apksignerFile != null) {
+        def apksignerStartAt = phaseStartAt()
         def cmdList = isWindows() ?
                 ["cmd", "/c", apksignerFile.absolutePath, "verify", "--verbose", "--print-certs", apkFile.absolutePath] :
                 [apksignerFile.absolutePath, "verify", "--verbose", "--print-certs", apkFile.absolutePath]
-        def process = cmdList.execute()
-        process.waitFor(30, TimeUnit.SECONDS)
-        def signerOutput = process.in.text
+        def signerResult = executeCommand(cmdList, 30)
+        def signerOutput = signerResult.output
+        if (!signerResult.finished) {
+            putInfo("APK签名校验", "apksigner timeout")
+        }
+        if (signerResult.exitValue != 0 && signerResult.finished) {
+            println "> Task :${project.name}:analyzingApkInfo apksigner exitValue : " + signerResult.exitValue
+        }
+        if (signerResult.error != null && signerResult.error.trim().length() > 0) {
+            String errorText = signerResult.error.trim()
+            if (errorText.length() > 200) {
+                errorText = errorText.substring(0, 200) + "..."
+            }
+            println "> Task :${project.name}:analyzingApkInfo apksigner stderr : " + errorText
+        }
+        phaseEnd("apksignerVerify", apksignerStartAt)
         if ((signerOutput =~ /Verified using v1 scheme.*:\s*true/).find()) {
             signSchemes.add("V1")
         }
@@ -1754,6 +1814,7 @@ def parseApkInfo(apkFile) {
         }
     }
     if (certSha1 == null || certSha256 == null || certMd5 == null || !certDn) {
+        def jarFallbackStartAt = phaseStartAt()
         java.util.jar.JarFile jarFile = new java.util.jar.JarFile(apkFile, true)
         try {
             byte[] buffer = new byte[8192]
@@ -1783,6 +1844,7 @@ def parseApkInfo(apkFile) {
         } finally {
             jarFile.close()
         }
+        phaseEnd("jarSignatureFallback", jarFallbackStartAt)
     }
 
     putInfo("签名摘要", formatHex(certMd5))
@@ -1807,6 +1869,7 @@ def parseApkInfo(apkFile) {
             targetSdk     : targetSdk,
             fileSize      : fileSize,
             infoList      : infoList,
+            phaseCost     : phaseCost,
     ]
 }
 
@@ -1825,6 +1888,9 @@ def analyzingApkInfo(flavorName, apkFile) {
             println " " + item.key + " | " + item.value
         }
         println separator
+        if (apkInfo.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
+            println "> Task :${project.name}:analyzingApkInfo [" + flavorName + "] phase cost(ms) : " + apkInfo.phaseCost
+        }
         if (false) {
             def fileName = apkFile.getName()
             def outputName = fileName.replace("release.apk", "apkinfo.txt")
