@@ -147,59 +147,40 @@ project.afterEvaluate {
         doLast { analyzingApkInfoInternal() }
     }
 
-    def addDebugFileTask = project.tasks.create("addDebugFile", {
-        doLast {
-            addDebugFile()
-        }
-    })
-    addDebugFileTask.setGroup("mobsdk")
+    project.tasks.create("addDebugFile") {
+        group "mobsdk"
+        doLast { addDebugFileInternal() }
+    }
 
-    def delDebugFileTask = project.tasks.create("deleteDebugFile", {
-        doLast {
-            delDebugFile()
-        }
-    })
-    delDebugFileTask.setGroup("mobsdk")
+    project.tasks.create("delDebugFile") {
+        group "mobsdk"
+        doLast { delDebugFileInternal() }
+    }
 
-    String aab2apkTaskName = String.format("aab2abk")
-    def aab2apkTask = project.tasks.create(aab2apkTaskName, {
-        doLast {
-            transformAab2ApkFlavor()
-        }
-    })
-    aab2apkTask.setGroup("mobsdk")
+    project.tasks.create("aab2abk") {
+        group "mobsdk"
+        doLast { transformAab2ApkFlavor() }
+    }
 
-    String taskName = String.format("newEncryptString")
-    def taskObject = project.tasks.create(taskName, {
-        doLast {
-            newEncryptStringTask()
-        }
-    })
-    taskObject.setGroup("mobsdk")
+    project.tasks.create("newEncryptString") {
+        group "mobsdk"
+        doLast { newEncryptStringTask() }
+    }
 
-    taskName = String.format("newDecryptString")
-    taskObject = project.tasks.create(taskName, {
-        doLast {
-            newDecryptStringTask()
-        }
-    })
-    taskObject.setGroup("mobsdk")
+    project.tasks.create("newDecryptString") {
+        group "mobsdk"
+        doLast { newDecryptStringTask() }
+    }
 
-    taskName = String.format("oldEncryptString")
-    taskObject = project.tasks.create(taskName, {
-        doLast {
-            oldEncryptStringTask()
-        }
-    })
-    taskObject.setGroup("mobsdk")
+    project.tasks.create("oldEncryptString") {
+        group "mobsdk"
+        doLast { oldEncryptStringTask() }
+    }
 
-    taskName = String.format("oldDecryptString")
-    taskObject = project.tasks.create(taskName, {
-        doLast {
-            oldDecryptStringTask()
-        }
-    })
-    taskObject.setGroup("mobsdk")
+    project.tasks.create("oldDecryptString") {
+        group "mobsdk"
+        doLast { oldDecryptStringTask() }
+    }
 }
 
 def firebaseDebugViewByUser(flavor) {
@@ -210,24 +191,36 @@ def firebaseDebugViewByUser(flavor) {
     println "firebase debug view result : success"
 }
 
-def addDebugFile() {
-    def cmdString = "adb shell touch /sdcard/Download/.debug"
-    def process = cmdString.execute()
-    process.waitFor(10, TimeUnit.SECONDS)
-    cmdString = "adb shell ls -al /sdcard/Download/.debug"
-    process = cmdString.execute()
-    process.waitFor(10, TimeUnit.SECONDS)
-    printOutput(process)
+def addDebugFileInternal() {
+    def methodName = { "delDebugFile" }
+    try {
+        def cmdString = "adb shell touch /sdcard/Download/.debug"
+        def process = cmdString.execute()
+        process.waitFor(10, TimeUnit.SECONDS)
+        cmdString = "adb shell ls -al /sdcard/Download/.debug"
+        process = cmdString.execute()
+        process.waitFor(10, TimeUnit.SECONDS)
+        process.consumeProcessOutput()
+        println "> Task :${project.name}:${methodName()} cmdString : $cmdString"
+    } catch (Exception e) {
+        println "> Task :${project.name}:${methodName()} add debug file error : $e"
+    }
 }
 
-def delDebugFile() {
-    def cmdString = "adb shell rm /sdcard/Download/.debug"
-    def process = cmdString.execute()
-    process.waitFor(10, TimeUnit.SECONDS)
-    cmdString = "adb shell ls -al /sdcard/Download/.debug"
-    process = cmdString.execute()
-    process.waitFor(10, TimeUnit.SECONDS)
-    printOutput(process)
+def delDebugFileInternal() {
+    def methodName = { "delDebugFile" }
+    try {
+        def cmdString = "adb shell rm /sdcard/Download/.debug"
+        def process = cmdString.execute()
+        process.waitFor(10, TimeUnit.SECONDS)
+        cmdString = "adb shell ls -al /sdcard/Download/.debug"
+        process = cmdString.execute()
+        process.waitFor(10, TimeUnit.SECONDS)
+        process.consumeProcessOutput()
+        println "> Task :${project.name}:${methodName()} cmdString : $cmdString"
+    } catch (Exception e) {
+        println "> Task :${project.name}:${methodName()} del debug file error : $e"
+    }
 }
 
 def checkAndroidAapt(flavorName) {
@@ -257,13 +250,13 @@ def checkAndroidAapt(flavorName) {
         }
         sdkDir = System.getenv("ANDROID_HOME")
     }
-    println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkRoot : " + sdkDir
+    println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkDir : " + sdkDir
     if (sdkDir == null) {
-        println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkRoot is null"
+        println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkDir is null"
         return null
     }
     if (!new File(sdkDir).exists()) {
-        println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkRoot is not exist"
+        println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkDir is not exist"
         return null
     }
     def exe = ""
