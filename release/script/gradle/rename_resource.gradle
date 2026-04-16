@@ -38,7 +38,7 @@ String idToBindingField(String idName) {
     return first + rest
 }
 
-tasks.register("renameResTask") {
+tasks.register("renameResource") {
     group = "sdkhub"
     description = "rename the resource file, id, style and so on"
     doLast {
