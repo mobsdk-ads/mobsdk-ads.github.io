@@ -931,8 +931,8 @@ def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
     return entries
 }
 
-def checkBundleFile(flavor, apkFilePath) {
-    def methodName = { "checkBundleFile" }
+def checkBundleFiles(flavor, apkFilePath) {
+    def methodName = { "checkBundleFiles" }
     def flavorName = flavor != null ? flavor : ""
     def outputFile = file(apkFilePath)
     def outputDir = outputFile.exists() ? outputFile.parentFile : null
@@ -1105,7 +1105,7 @@ def checkOutputFileFlavor() {
             def aabFileList = getFileListByExtension(flavor.name, "aab")
             if (aabFileList != null && !aabFileList.isEmpty()) {
                 aabFileList.each {
-                    checkBundleFile(flavor.name, it.getAbsolutePath())
+                    checkBundleFiles(flavor.name, it.getAbsolutePath())
                 }
             }
         }
@@ -1113,7 +1113,7 @@ def checkOutputFileFlavor() {
         def aabFileList = getFileListByExtension(null, "aab")
         if (aabFileList != null && !aabFileList.isEmpty()) {
             aabFileList.each {
-                checkBundleFile(null, it.getAbsolutePath())
+                checkBundleFiles(null, it.getAbsolutePath())
             }
         }
     }
