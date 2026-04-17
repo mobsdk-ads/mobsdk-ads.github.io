@@ -115,12 +115,12 @@ project.afterEvaluate {
 
         def packageRelease = project.tasks.findByName("package${cap}Release")
         packageRelease?.doFirst {
-            encryptAssetsFiles(flavorName)
+            encryptAssetFiles(flavorName)
         }
 
         def mergeAssets = project.tasks.findByName("merge${cap}ReleaseAssets")
         mergeAssets?.doLast {
-            encryptAssetsFiles(flavorName)
+            encryptAssetFiles(flavorName)
         }
 
         def packageBundle = project.tasks.findByName("package${cap}ReleaseBundle")
@@ -568,8 +568,8 @@ def generateSignMd5(flavor, assetDir) {
  * @param flavor
  * @return
  */
-def encryptAssetsFiles(flavor) {
-    def methodName = { "encryptAssetsFile" }
+def encryptAssetFiles(flavor) {
+    def methodName = { "encryptAssetFile" }
     println ""
     def secret = ext != null && ext.has("secret") ? ext["secret"] : "123456789"
     def useAesNew = ext != null && ext.has("aesNew") ? ext["aesNew"] : true
@@ -933,7 +933,6 @@ def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
 
 def checkBundleFiles(flavor, apkFilePath) {
     def methodName = { "checkBundleFiles" }
-    def flavorName = flavor != null ? flavor : ""
     def outputFile = file(apkFilePath)
     def outputDir = outputFile.exists() ? outputFile.parentFile : null
     def outputFileList = outputDir != null ? outputDir.list() : null
@@ -1095,11 +1094,6 @@ def transformAab2ApkFlavor() {
 }
 
 def checkOutputFileFlavor() {
-    def methodName = {
-        "checkBundleFile"
-    }
-    println ""
-    println "${taskTag()}:${project.name}:${methodName()}"
     if (project.android.productFlavors.size() > 0) {// 如果有产品风味
         project.android.productFlavors.each { flavor ->
             def aabFileList = getFileListByExtension(flavor.name, "aab")
