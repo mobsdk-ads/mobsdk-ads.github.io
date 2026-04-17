@@ -37,6 +37,18 @@ def redText(text) {
     return text
 }
 
+def greenText(text) {
+    try {
+        return "\u001B[32m" + text + "\u001B[0m"
+    } catch (Exception e) {
+    }
+    return text
+}
+
+def taskTag() {
+    return "> Task "
+}
+
 class Global {
     static def sEncryptFileList = new LinkedHashSet<String>()
 }
@@ -113,13 +125,16 @@ project.afterEvaluate {
 
         def packageBundle = project.tasks.findByName("package${cap}ReleaseBundle")
         packageBundle?.doFirst {
-            removeSpecialProguard(flavorName)
+            removeSpecialMap(flavorName)
         }
 
         def signBundle = project.tasks.findByName("sign${cap}ReleaseBundle")
-        signBundle?.doLast {
-            removeBundleMetaData(flavorName)
-            checkBundleFile(flavorName)
+        signBundle?.doFirst {
+            it?.inputs?.files?.each {file ->
+                if (file.name.endsWith(".aab")) {
+                    removeBundleFile(flavorName, file.absolutePath)
+                }
+            }
         }
 
         // custom tasks
@@ -144,20 +159,20 @@ project.afterEvaluate {
 
     project.tasks.create("analyzingApkInfo") {
         group "mobsdk"
-        doLast { analyzingApkInfoInternal() }
+        doLast { analyzingApkInfoFlavor() }
     }
 
-    project.tasks.create("addDebugFile") {
+    project.tasks.create("appendDebugFile") {
         group "mobsdk"
-        doLast { addDebugFileInternal() }
+        doLast { appendDebugFileInternal() }
     }
 
-    project.tasks.create("delDebugFile") {
+    project.tasks.create("removeDebugFile") {
         group "mobsdk"
-        doLast { delDebugFileInternal() }
+        doLast { removeDebugFileInternal() }
     }
 
-    project.tasks.create("aab2abk") {
+    project.tasks.create("transformAab2Apk") {
         group "mobsdk"
         doLast { transformAab2ApkFlavor() }
     }
@@ -191,7 +206,7 @@ def firebaseDebugViewByUser(flavor) {
     println "firebase debug view result : success"
 }
 
-def addDebugFileInternal() {
+def appendDebugFileInternal() {
     def methodName = { "delDebugFile" }
     try {
         def cmdString = "adb shell touch /sdcard/Download/.debug"
@@ -201,13 +216,13 @@ def addDebugFileInternal() {
         process = cmdString.execute()
         process.waitFor(10, TimeUnit.SECONDS)
         process.consumeProcessOutput()
-        println "> Task :${project.name}:${methodName()} cmdString : $cmdString"
+        println "${taskTag()}:${project.name}:${methodName()} cmdString : $cmdString"
     } catch (Exception e) {
-        println "> Task :${project.name}:${methodName()} add debug file error : $e"
+        println "${taskTag()}:${project.name}:${methodName()} add debug file error : $e"
     }
 }
 
-def delDebugFileInternal() {
+def removeDebugFileInternal() {
     def methodName = { "delDebugFile" }
     try {
         def cmdString = "adb shell rm /sdcard/Download/.debug"
@@ -217,9 +232,9 @@ def delDebugFileInternal() {
         process = cmdString.execute()
         process.waitFor(10, TimeUnit.SECONDS)
         process.consumeProcessOutput()
-        println "> Task :${project.name}:${methodName()} cmdString : $cmdString"
+        println "${taskTag()}:${project.name}:${methodName()} cmdString : $cmdString"
     } catch (Exception e) {
-        println "> Task :${project.name}:${methodName()} del debug file error : $e"
+        println "${taskTag()}:${project.name}:${methodName()} del debug file error : $e"
     }
 }
 
@@ -236,27 +251,27 @@ def checkAndroidAapt(flavorName) {
     }
     if (sdkDir == null || !new File(sdkDir).exists()) {
         if (sdkDir == null) {
-            println "> Task :${project.name}:${methodName()} [$flavorName] sdk.dir is null, Check ANDROID_SDK_ROOT"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] checkAaptPath : sdk.dir is null, Check ANDROID_SDK_ROOT"
         } else {
-            println "> Task :${project.name}:${methodName()} [$flavorName] sdk.dir is not exist, Check ANDROID_SDK_ROOT"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] checkAaptPath : sdk.dir is not exist, Check ANDROID_SDK_ROOT"
         }
         sdkDir = System.getenv("ANDROID_SDK_ROOT")
     }
     if (sdkDir == null || !new File(sdkDir).exists()) {
         if (sdkDir == null) {
-            println "> Task :${project.name}:${methodName()} [$flavorName] ANDROID_SDK_ROOT is null, Check ANDROID_HOME"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] checkAaptPath : ANDROID_SDK_ROOT is null, Check ANDROID_HOME"
         } else {
-            println "> Task :${project.name}:${methodName()} [$flavorName] ANDROID_SDK_ROOT is not exist, Check ANDROID_HOME"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] checkAaptPath : ANDROID_SDK_ROOT is not exist, Check ANDROID_HOME"
         }
         sdkDir = System.getenv("ANDROID_HOME")
     }
-    println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkDir : " + sdkDir
+    println "${taskTag()}:${project.name}:${methodName()} [$flavorName] androidSdkDir : " + sdkDir
     if (sdkDir == null) {
-        println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkDir is null"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] androidSdkDir : null"
         return null
     }
     if (!new File(sdkDir).exists()) {
-        println "> Task :${project.name}:${methodName()} [$flavorName] androidSdkDir is not exist"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] androidSdkDir : not exist"
         return null
     }
     def exe = ""
@@ -281,7 +296,7 @@ def checkAndroidAapt(flavorName) {
         }
     }
     def aaptFile = buildToolDir + File.separator + buildToolVersionDir + File.separator + "aapt" + exe
-    println "> Task :${project.name}:${methodName()} [$flavorName] finalAaptPath : " + aaptFile
+    println "${taskTag()}:${project.name}:${methodName()} [$flavorName] finalAaptPath : " + aaptFile
     return aaptFile
 }
 
@@ -372,7 +387,7 @@ def getAssetsOutDir(flavor, appId) {
         def assetsFileName = ['assets', 'merged_assets']
         def flavorPathPattern = ["${flavor}Release", "${flavor}${File.separator}release"]
         if (flavor != null) {
-            println "> Task :${project.name}:${methodName()} [$flavor] flavor path pattern: ${flavorPathPattern}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] flavor path pattern: ${flavorPathPattern}"
         }
         def backupAssetsList = []
         assetsFileName.forEach { assetsName ->
@@ -420,8 +435,8 @@ def generateAdConfigFileName(flavorName) {
     def appId = getApplicationId(flavorName)
     def pkgnameMd5 = Utils.string2MD5(appId)
     def adConfigName = "mob" + pkgnameMd5.substring(0, 8) + getSuffix()
-    println "> Task :${project.name}:${methodName()} [${flavorName}] generateConfigName : " + adConfigName
-    println "> Task :${project.name}:${methodName()} [${flavorName}] generateOriginName : app_mob_data.cfg"
+    println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] generateConfigName : " + adConfigName
+    println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] generateOriginName : app_mob_data.cfg"
     return adConfigName
 }
 
@@ -560,9 +575,9 @@ def encryptAssetsFiles(flavor) {
     def useAesNew = ext != null && ext.has("aesNew") ? ext["aesNew"] : true
     def appId = getApplicationId(flavor)
     def assetDirList = getAssetsOutDir(flavor, appId)
-    println "> Task :${project.name}:${methodName()} [$flavor] assets dirs : $assetDirList"
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] assets dirs : $assetDirList"
     if (assetDirList == null || assetDirList.isEmpty()) {
-        System.err.println("> Task :${project.name}:${methodName()} [AssetDir Not Exist]");
+        System.err.println("${taskTag()}:${project.name}:${methodName()} [AssetDir Not Exist]");
         return
     }
     // Global.sEncryptFileList.clear()
@@ -578,7 +593,7 @@ def encryptAssetsFiles(flavor) {
             if (shortFilePath != null && shortFilePath.startsWith(File.separator)) {
                 shortFilePath = shortFilePath.substring(1)
             }
-            println "> Task :${project.name}:${methodName()} [$flavor] [${shortFilePath}] need encrypt : $needEncrypt"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] [${shortFilePath}] need encrypt : $needEncrypt"
             if (needEncrypt) {
                 try {
                     if (useAesNew) {
@@ -588,16 +603,16 @@ def encryptAssetsFiles(flavor) {
                     }
                     // Global.sEncryptFileList.add(assetDir)
                     Global.sEncryptFileList.add(fullFilePath)
-                    println "> Task :${project.name}:${methodName()} [$flavor] [$shortFilePath] encrypt successfully"
+                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] [$shortFilePath] encrypt successfully"
                 } catch (Exception e) {
                     e.printStackTrace()
                 }
             } else {
-                println "> Task :${project.name}:${methodName()} [$flavor] [$shortFilePath] has encrypted previously"
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] [$shortFilePath] has encrypted previously"
             }
         }
     } else {
-        println "> Task :${project.name}:${methodName()} [$flavor] [Ad Config File Not Exist]"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] [Ad Config File Not Exist]"
     }
     def mainTree = getEncryptFileTree(assetDirList)
     if (mainTree != null && !mainTree.isEmpty()) {
@@ -611,7 +626,7 @@ def encryptAssetsFiles(flavor) {
             if (shortFilePath != null && shortFilePath.startsWith(File.separator)) {
                 shortFilePath = shortFilePath.substring(1)
             }
-            println "> Task :${project.name}:${methodName()} [$flavor] [${shortFilePath}] need encrypt : $needEncrypt"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] [${shortFilePath}] need encrypt : $needEncrypt"
             if (needEncrypt) {
                 try {
                     if (useAesNew) {
@@ -619,14 +634,14 @@ def encryptAssetsFiles(flavor) {
                     } else {
                         Aes.encryptFile(filePath, secret)
                     }
-                    Global.sEncryptFileList.add(assetDir)
-                    Global.sEncryptFileList.add(shortFilePath)
-                    println "> Task :app:${methodName()} [$flavor] [${shortFilePath}] encrypt successfully"
+                    // Global.sEncryptFileList.add(assetDir)
+                    Global.sEncryptFileList.add(fullFilePath)
+                    println "${taskTag()}:app:${methodName()} [$flavor] [${shortFilePath}] encrypt successfully"
                 } catch (Exception e) {
                     e.printStackTrace()
                 }
             } else {
-                println "> Task :${project.name}:${methodName()} [$flavor] [${shortFilePath}] has encrypted previously"
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] [${shortFilePath}] has encrypted previously"
             }
         }
     }
@@ -644,7 +659,7 @@ def encryptAssetsFiles(flavor) {
 def signAabWithJarsigner(String aabFilePath, String keystorePath, String storePassword, String keyAlias, String keyPassword) {
     def methodName = { "signAabWithJarsigner" }
     def jarsigner = new File("${System.getenv('JAVA_HOME') ?: 'java'}/bin/jarsigner").getCanonicalFile()
-    println "> Task :${project.name}:${methodName()} jarsigner : $jarsigner"
+    println "${taskTag()}:${project.name}:${methodName()} jarsigner : $jarsigner"
     if (!new File(jarsigner).exists()) {
         throw new GradleException("签名失败:Jarsigner File is not exists")
     }
@@ -660,7 +675,7 @@ def signAabWithJarsigner(String aabFilePath, String keystorePath, String storePa
             keyAlias
     ]
 
-    println "> Task :${project.name}:${methodName()} 执行签名命令 : ${cmd.join(' ')}"
+    println "${taskTag()}:${project.name}:${methodName()} 执行签名命令 : ${cmd.join(' ')}"
     def process = cmd.execute()
     def output = new StringBuffer()
     def error = new StringBuffer()
@@ -671,10 +686,49 @@ def signAabWithJarsigner(String aabFilePath, String keystorePath, String storePa
     if (process.exitValue() != 0) {
         throw new GradleException("签名失败:\n${error.toString()}")
     } else {
-        println "> Task :${project.name}:${methodName()} ✅ 签名成功 : ${aabFilePath}"
+        println "${taskTag()}:${project.name}:${methodName()} ✅ 签名成功 : ${aabFilePath}"
     }
 }
 
+def removeBundleFile(flavor, aapFilePath) {
+    def methodName = { "removeBundleFile" }
+    if (ext.has("removeBundleFile")) {
+        List<String> bundleMetaData = ext.get("removeBundleFile")
+        if (bundleMetaData == null || bundleMetaData.isEmpty()) {
+            return
+        }
+        def flavorName = flavor != null ? flavor : ""
+        def outputFile = file(aapFilePath)
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] specialOutput : " + outputFile
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] specialBundle : 签名之前删除元数据文件" + bundleMetaData
+        if (outputFile != null && outputFile.exists()) {
+            def aaptFile = checkAndroidAapt(flavor)
+            if (aaptFile != null && new File(aaptFile).exists()) {
+                def cmdList = ["aapt", "r", outputFile.absolutePath]
+                List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
+                def bundleFilesToRemove = []
+                bundleFiles.forEach {
+                    for (name in bundleMetaData) {
+                        if (it.endsWith(name)) {
+                            bundleFilesToRemove.add(it)
+                        }
+                    }
+                }
+                if (bundleFilesToRemove.size() > 0) {
+                    bundleFilesToRemove.forEach {
+                        cmdList.add(it)
+                    }
+                    def cmdString = cmdList.join(" ")
+                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] RemoveCommand : " + optimizeCommand(cmdString)
+                    def result = cmdList.execute().text
+                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] CommandResult : " + result
+                } else {
+                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] No bundleMetaData to remove"
+                }
+            }
+        }
+    }
+}
 
 def removeBundleMetaData(flavor) {
     def methodName = { "removeBundleMetaData" }
@@ -702,14 +756,14 @@ def removeBundleMetaData(flavor) {
             }
         }
         println ""
-        println "> Task :${project.name}:${methodName()} [$flavor] flavorName : " + flavorName
-        println "> Task :${project.name}:${methodName()} [$flavor] outputDir : " + outputDir
-        println "> Task :${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
-        println "> Task :${project.name}:${methodName()} [$flavor] outputFiles : " + outputDir.list()
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] flavorName : " + flavorName
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputDir : " + outputDir
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFiles : " + outputDir.list()
         if (outputFile != null && outputFile.exists()) {
             def aaptFile = checkAndroidAapt(flavor)
             if (aaptFile != null && new File(aaptFile).exists()) {
-                println "> Task :${project.name}:${methodName()} [$flavor] aapt file : $aaptFile"
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] aapt file : $aaptFile"
                 def cmdList = ["aapt", "r", outputFile.absolutePath]
                 List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
                 bundleFiles.forEach {
@@ -720,15 +774,15 @@ def removeBundleMetaData(flavor) {
                     }
                 }
                 def cmdString = cmdList.join(" ")
-                println "> Task :${project.name}:${methodName()} [$flavor] execute remove bundle metadata cmd : " + cmdString
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] execute remove bundle metadata cmd : " + cmdString
                 def result = cmdList.execute().text
-                println "> Task :${project.name}:${methodName()} [$flavor] execute remove bundle metadata result : " + result
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] execute remove bundle metadata result : " + result
                 def signConfig = getAab2ApkSignConfig(flavor)
                 if (signConfig == null || !signConfig.containsKey("storeFile")
                         || !signConfig.containsKey("storePassword")
                         || !signConfig.containsKey("keyAlias")
                         || !signConfig.containsKey("keyPassword")) {
-                    println "> Task :${project.name}:${methodName()} [$flavor] signConfig is not completion"
+                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] signConfig is not completion"
                     return
                 }
                 def storeFile = signConfig.storeFile
@@ -741,8 +795,8 @@ def removeBundleMetaData(flavor) {
     }
 }
 
-def removeSpecialProguard(flavor) {
-    def methodName = { "removeSpecialProguard" }
+def removeSpecialMap(flavor) {
+    def methodName = { "removeSpecialMap" }
     List<String> blackStringList = null
     if (ext != null && ext.has("proguardBlackString")) {
         blackStringList = ext["proguardBlackString"]
@@ -752,7 +806,6 @@ def removeSpecialProguard(flavor) {
     }
     blackStringList.add("com.sdkhub.")
     if (blackStringList != null && !blackStringList.isEmpty()) {
-        println "> Task :${project.name}:${methodName()} [$flavor]"
         def flavorName = flavor != null ? flavor : ""
         def mappingFile = null
         def mappingBack = null
@@ -780,12 +833,11 @@ def removeSpecialProguard(flavor) {
             mappingTemp = new File(mappingDir, "mapping-cleaned-temp.txt")
             cleanedFile = new File(mappingDir, "mapping-cleaned.txt")
         }
-        println "> Task :${project.name}:${methodName()} [$flavor] flavorName : " + flavorName
-        println "> Task :${project.name}:${methodName()} [$flavor] mappingDir : " + mappingDir
-        println "> Task :${project.name}:${methodName()} [$flavor] outputFile : " + mappingFile
-        println "> Task :${project.name}:${methodName()} [$flavor] outputFiles : " + mappingDir.list()
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] mappingDir : " + mappingDir
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + mappingFile
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputs : " + mappingDir.list()
         if (mappingFile != null && mappingFile.exists()) {
-            println "> Task :${project.name}:${methodName()} [$flavor] start processing $blackStringList"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] processing : 打包前移除混淆符号$blackStringList"
             if (mappingBack != null) {
                 if (mappingBack.exists()) {
                     mappingBack.delete()
@@ -850,7 +902,7 @@ def removeSpecialProguard(flavor) {
 
             mappingFile.delete()
             mappingTemp.renameTo(mappingFile)
-            println "> Task :${project.name}:${methodName()} [$flavor] process complete count [$cleanedCount]"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] processing : complete count [$cleanedCount]"
         }
     }
 }
@@ -879,54 +931,43 @@ def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
     return entries
 }
 
-
-def checkBundleFile(flavor) {
+def checkBundleFile(flavor, apkFilePath) {
     def methodName = { "checkBundleFile" }
-    println ""
     def flavorName = flavor != null ? flavor : ""
-    def outputFile = null
-    def outputDir = getBuildDir()
-    outputDir = new File(outputDir, "outputs")
-    outputDir = new File(outputDir, "bundle")
-    if (flavor != null) {
-        outputDir = new File(outputDir, flavorName + "Release")
-    } else {
-        outputDir = new File(outputDir, "release")
-    }
-    File[] outputFileList = outputDir.listFiles()
-    if (outputFileList != null && outputFileList.length > 0) {
-        outputFileList.each {
-            if (it.absolutePath.endsWith(".aab")) {
-                outputFile = it
-            }
-        }
-    }
+    def outputFile = file(apkFilePath)
+    def outputDir = outputFile.exists() ? outputFile.parentFile : null
+    def outputFileList = outputDir != null ? outputDir.list() : null
     try {
         if (outputFile != null && outputFile.exists()) {
             def tmpDir = outputFile.getParentFile()
             def outputName = outputFile.getName()
             def srcMapping = new File(tmpDir, "mapping.txt")
             if (srcMapping.exists()) {
-                def dstMappingName = outputName.replaceAll(".aab", ".txt")
-                def dstMappingFile = new File(tmpDir, dstMappingName)
-                println "> Task :${project.name}:${methodName()} [$flavor] dst mapping : $dstMappingFile"
-                srcMapping.renameTo(dstMappingFile)
+                def dstMapZipName = outputName.replaceAll(".aab", ".zip")
+                def dstMapZipFile = new File(tmpDir, dstMapZipName)
+                if (dstMapZipFile.exists()) {
+                    dstMapZipFile.delete()
+                }
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] zipMapping : $dstMapZipFile"
+                ant.zip(destfile: dstMapZipFile.absolutePath) {
+                    fileset(file: srcMapping.absolutePath)
+                }
+                srcMapping.delete()
             }
         }
     } catch (Exception e) {
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] zipMapping : $e"
     }
-    println "> Task :${project.name}:${methodName()} [$flavor] flavorName : " + flavorName
-    println "> Task :${project.name}:${methodName()} [$flavor] outputDir : " + outputDir
-    println "> Task :${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
-    println "> Task :${project.name}:${methodName()} [$flavor] outputFiles : " + outputDir.list()
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputs : " + greenText("" + outputFileList)
     if (outputFile != null && outputFile.exists()) {
         def bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/", "META-INF"])
         if (bundleFiles != null && !bundleFiles.isEmpty()) {
-            println "> Task :${project.name}:${methodName()} [$flavor] >>>"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] >>>"
             bundleFiles.forEach {
-                println "> Task :>>>> $it"
+                println "${taskTag()}:>>>> ${greenText(it)}"
             }
-            println "> Task :${project.name}:${methodName()} [$flavor] <<<"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] <<<"
         }
     }
 }
@@ -934,7 +975,7 @@ def checkBundleFile(flavor) {
 afterEvaluate {
     try {
         def executeTasks = getGradle().getStartParameter().getTaskRequests()[0]["args"]
-        println "> Task :${project.name}:Task Start Params : $executeTasks"
+        println "${taskTag()}:${project.name}:Task Start Params : $executeTasks"
         def taskName = null
         def tag = null
         executeTasks.each {
@@ -947,7 +988,7 @@ afterEvaluate {
                 tag = "apk"
             }
         }
-        println "> Task :${project.name}:Task Start Bundle : $taskName"
+        println "${taskTag()}:${project.name}:Task Start Bundle : $taskName"
         if (taskName != null) {
             def index = taskName.lastIndexOf(":")
             if (index > -1) {
@@ -956,22 +997,23 @@ afterEvaluate {
             def aTask = project.tasks.findByName(taskName)
             if (aTask != null) {
                 aTask.doLast {
-                    if (Global.sEncryptFileList != null && !Global.sEncryptFileList.isEmpty()) {
-                        println ""
-                        println "> Task :${project.name}:encryptAssetsFile [assets files encrypted result]"
-                        Global.sEncryptFileList.forEach {
-                            println "> Task :${project.name}:encryptAssetsFile [$it]"
-                        }
-                        println ""
-                    }
                     if ("bundle".equals(tag)) {
                         if (isAAB2ApkAllow()) {
                             transformAab2ApkFlavor()
                         } else {
-                            println "> Task :${project.name}:transformAab2Apk aab2apk is not set"
+                            println "${taskTag()}:${project.name}:transformAab2Apk aab2apk is not set"
                         }
                     }
-                    analyzingApkInfoInternal()
+                    if (Global.sEncryptFileList != null && !Global.sEncryptFileList.isEmpty()) {
+                        println ""
+                        println "${taskTag()}:${project.name}:encryptAssetFile [assets files encrypted result]"
+                        Global.sEncryptFileList.forEach {
+                            println "${taskTag()}:${project.name}:encryptAssetFile [$it]"
+                        }
+                        println ""
+                    }
+                    checkOutputFileFlavor()
+                    analyzingApkInfoFlavor()
                     openReleaseDir(taskName, tag)
                 }
             }
@@ -982,7 +1024,7 @@ afterEvaluate {
 
 def openReleaseDir(String taskName, String tag) {
     def methodName = { "openReleaseDir" }
-    if (!(ext.find("openRelease") == true)) {
+    if (ext.find("openRelease") == false) {
         return
     }
     if (isContainBundleRelease(taskName)) {
@@ -995,7 +1037,7 @@ def openReleaseDir(String taskName, String tag) {
             def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
             cmd.execute()
             println ""
-            println "> Task :${project.name}:${methodName()} [${cmd}]"
+            println "${taskTag()}:${project.name}:${methodName()} [${cmd}]"
         } catch (Exception e) {
             println ":${project.name}:${methodName()} error : " + e.getMessage()
         }
@@ -1038,7 +1080,7 @@ def transformAab2ApkFlavor() {
         "transformAab2Apk"
     }
     println ""
-    println "> Task :${project.name}:${methodName()}"
+    println "${taskTag()}:${project.name}:${methodName()}"
     if (project.android.productFlavors.size() > 0) {// 如果有产品风味
         project.android.productFlavors.each { flavor ->
             def baseName = getNormalizeBaseName()
@@ -1049,6 +1091,31 @@ def transformAab2ApkFlavor() {
         def baseName = getNormalizeBaseName()
         def aabOutputAabFileName = baseName + "-release.aab"
         transformAab2ApkMixedLocked(null, aabOutputAabFileName)
+    }
+}
+
+def checkOutputFileFlavor() {
+    def methodName = {
+        "checkBundleFile"
+    }
+    println ""
+    println "${taskTag()}:${project.name}:${methodName()}"
+    if (project.android.productFlavors.size() > 0) {// 如果有产品风味
+        project.android.productFlavors.each { flavor ->
+            def aabFileList = getFileListByExtension(flavor.name, "aab")
+            if (aabFileList != null && !aabFileList.isEmpty()) {
+                aabFileList.each {
+                    checkBundleFile(flavor.name, it.getAbsolutePath())
+                }
+            }
+        }
+    } else {
+        def aabFileList = getFileListByExtension(null, "aab")
+        if (aabFileList != null && !aabFileList.isEmpty()) {
+            aabFileList.each {
+                checkBundleFile(null, it.getAbsolutePath())
+            }
+        }
     }
 }
 
@@ -1066,10 +1133,9 @@ def transformAab2ApkMixedLocked(flavorName, aabOutputFileName) {
     def methodName = {
         "transformAab2Apk"
     }
-    println ""
     def fileListSet = getFileListByExtension(flavorName, "aab")
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] allAabFilesList : " + fileListSet
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] finalOutputName : " + aabOutputFileName
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] allAabFilesList : " + fileListSet
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalOutputName : " + aabOutputFileName
     if (aabOutputFileName != null) {
         aabOutputFileName = aabOutputFileName.replace(".apk", ".aab")
     }
@@ -1095,7 +1161,7 @@ def transformAab2ApkMixedLocked(flavorName, aabOutputFileName) {
     if (outputAabFile.exists()) {
         transformAab2ApkInternalLocked(flavorName, outputAabFile)
     } else {
-        println "> Task :${project.name}:${methodName()} [" + flavorName + "] Use allAabFilesList to transform"
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] Use allAabFilesList to transform"
         fileListSet?.each {
             transformAab2ApkInternalLocked(flavorName, it)
         }
@@ -1107,22 +1173,22 @@ def transformAab2ApkInternalLocked(flavorName, finalBundleFile) {
         "transformAab2Apk"
     }
 
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] finalBundleFile : " + finalBundleFile
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalBundleFile : " + finalBundleFile
     if (finalBundleFile == null || !finalBundleFile.exists()) {
-        println "> Task :${project.name}:${methodName()} [" + flavorName + "] finalBundleFile is not exist ###"
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalBundleFile is not exist ###"
         return
     }
     def signConfig = getAab2ApkSignConfig(flavorName)
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] signConfig : ${signConfig}"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] signConfig : ${signConfig}"
     if (signConfig == null) {
-        System.err.println "> Task :${project.name}:${methodName()} [" + flavorName + "] signConfig is Null"
+        System.err.println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] signConfig is Null"
         return
     }
     if (!signConfig.containsKey("storeFile")
             || !signConfig.containsKey("storePassword")
             || !signConfig.containsKey("keyAlias")
             || !signConfig.containsKey("keyPassword")) {
-        System.err.println "> Task :${project.name}:${methodName()} [" + flavorName + "] signConfig is not completion"
+        System.err.println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] signConfig is not completion"
         return
     }
     def bundleFileName = "bundletool-all-1.16.0.jar"
@@ -1131,15 +1197,15 @@ def transformAab2ApkInternalLocked(flavorName, finalBundleFile) {
     def bundleToolPath = new File(bundleToolDir, bundleFileName).getAbsolutePath()
     def bundleToolPathCompleteFile = new File(bundleToolDir, bundleFileName + ".lock").getAbsolutePath()
     def bundleToolUrl = "https://mobsdk-ads.github.io/release/tools/bundletool/" + bundleFileName
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] bundleToolPath : " + bundleToolPath
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolPath : " + bundleToolPath
     if (!new File(bundleToolPath).exists() || !new File(bundleToolPathCompleteFile).exists()) {
-        println "> Task :${project.name}:${methodName()} [" + flavorName + "] Downloading " + bundleFileName
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] Downloading " + bundleFileName
         try {
-            downloadFile(bundleToolUrl, bundleToolPath, "> Task :${project.name}:${methodName()} [" + flavorName + "] " + bundleFileName)
+            downloadFile(bundleToolUrl, bundleToolPath, "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] " + bundleFileName)
             new File(bundleToolPathCompleteFile).createNewFile()
         } catch (Exception e) {
-            println "\n> Task :${project.name}:${methodName()} [" + flavorName + "] download file error"
+            println "\n${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] download file error"
             def bundleToolFile = new File(bundleToolPath)
             if (bundleToolFile.exists()) {
                 bundleToolFile.delete()
@@ -1148,7 +1214,7 @@ def transformAab2ApkInternalLocked(flavorName, finalBundleFile) {
     }
 
     if (bundleToolPath == null || !new File(bundleToolPath).exists()) {
-        System.err.println "> Task :${project.name}:${methodName()} [" + flavorName + "] bundle tool is null"
+        System.err.println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundle tool is null"
         return
     }
     executeTransformAab2Apk(signConfig, finalBundleFile, bundleToolPath, flavorName)
@@ -1163,7 +1229,7 @@ def transformAab2ApkInternalLocked(flavorName, finalBundleFile) {
             def channelFileName = baseName + "_" + channel + ".aab"
             def channelAabFile = new File(fileDir, channelFileName)
             println ""
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] Generate Channel Apk : [" + channel + "]"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] Generate Channel Apk : [" + channel + "]"
             copyFile(finalBundleFile.getAbsolutePath(), channelAabFile.getAbsolutePath())
             appendChannelToAabFile(channelAabFile.getAbsolutePath(), channel, fileDir, flavorName, getChannelFileName())
             executeTransformAab2Apk(signConfig, channelAabFile, bundleToolPath, flavorName)
@@ -1195,28 +1261,28 @@ def executeTransformAab2Apk(signConfig, finalBundleFile, bundleToolPath, flavorN
                    "--key-pass=pass:" + keyPassword,
                    "--mode=universal"]
     def cmdString = cmdList.join(" ")
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] Command : [" + optimizeCommand(cmdString) + "]"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] Command : [" + optimizeCommand(cmdString) + "]"
     try {
         def process = cmdString.execute()
         def pid = process.waitFor()
         if (pid == 0) {
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] Result : [" + process.text.trim() + "]"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] Result : [" + process.text.trim() + "]"
         } else {
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] Error  : [" + process.err.text + "]"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] Error  : [" + process.err.text + "]"
         }
         if (finalApksFile != null && finalApksFile.exists()) {
             extractFileFromZip(finalApksFile, "universal.apk", finalApkFile)
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] finalApkFile : [" + finalApkFile + "]"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalApkFile : [" + finalApkFile + "]"
             println ""
             if (finalApkFile.exists()) {
                 finalApksFile.delete()
             }
         } else {
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] transform aab to apk failed"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] transform aab to apk failed"
             println ""
         }
     } catch (Exception e) {
-        println "> Task :${project.name}:${methodName()} [" + flavorName + "] error : " + e
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] error : " + e
         println ""
     }
 }
@@ -1233,8 +1299,8 @@ def appendChannelToAabFile(aabFilePath, channel, releaseDir, flavorName, channel
     def methodName = {
         "appendChannelsFile"
     }
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "][" + channel + "] >>>>>>>>> Append Channels File Start <<<<<<<<<"
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "][" + channel + "] BaseApk [" + aabFilePath + "]"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "][" + channel + "] >>>>>>>>> Append Channels File Start <<<<<<<<<"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "][" + channel + "] BaseApk [" + aabFilePath + "]"
 
     // 创建渠道文件
     File tempBase = new File(releaseDir, "base")
@@ -1258,7 +1324,7 @@ def appendChannelToAabFile(aabFilePath, channel, releaseDir, flavorName, channel
     channelFile.delete()
     tempAssets.delete()
     tempBase.delete()
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "][" + channel + "] >>>>>>>>> Append Channels File Complete <<<<<<<<<\n"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "][" + channel + "] >>>>>>>>> Append Channels File Complete <<<<<<<<<\n"
 }
 
 def getAppendCmdListByAapt(packageFile, aaptFile, fileList) {
@@ -1280,11 +1346,11 @@ def appendFilesIntoApk(workDir, packageFile, fileList, flavorName) {
     def aaptFile = checkAndroidAapt(flavorName)
     def cmd = getAppendCmdListByAapt(packageFile, aaptFile, fileList)
     if (cmd == null || cmd.isEmpty()) {
-        println "> Task :${project.name}:${methodName()} [$flavorName] Error [cmd is empty]"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] Error [cmd is empty]"
         return
     }
     def cmdString = cmd.join(" ")
-    println "> Task :${project.name}:${methodName()} [$flavorName] Command [" + optimizeCommand(cmdString) + "]"
+    println "${taskTag()}:${project.name}:${methodName()} [$flavorName] Command [" + optimizeCommand(cmdString) + "]"
     try {
         Process p = cmdString.execute(null, new File(workDir))
         p.waitFor(20, TimeUnit.SECONDS)
@@ -1616,7 +1682,7 @@ def parseApkFileInfo(flavorName, apkFile) {
         }
         if (badgingResult.exitValue != 0 && badgingResult.finished) {
             def errorDisplay = "badging exitValue : ${badgingResult.exitValue}"
-            println "> Task :${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         if (badgingResult.error != null && badgingResult.error.trim().length() > 0) {
             String errorText = badgingResult.error.trim()
@@ -1624,7 +1690,7 @@ def parseApkFileInfo(flavorName, apkFile) {
                 errorText = errorText.substring(0, 200) + "..."
             }
             def errorDisplay = "badging stderr : ${errorText}"
-            println "> Task :${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         phaseEnd("aaptBadging", aaptBadgingStartAt)
 
@@ -1636,7 +1702,7 @@ def parseApkFileInfo(flavorName, apkFile) {
         }
         if (manifestResult.exitValue != 0 && manifestResult.finished) {
             def errorDisplay = "xmltree exitValue : ${manifestResult.exitValue}"
-            println "> Task :${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         if (manifestResult.error != null && manifestResult.error.trim().length() > 0) {
             String errorText = manifestResult.error.trim()
@@ -1644,7 +1710,7 @@ def parseApkFileInfo(flavorName, apkFile) {
                 errorText = errorText.substring(0, 200) + "..."
             }
             def errorDisplay = "xmltree stderr : ${errorText}"
-            println "> Task :${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         phaseEnd("aaptManifest", aaptManifestStartAt)
     }
@@ -1844,6 +1910,7 @@ def parseApkFileInfo(flavorName, apkFile) {
         def cmdList = isWindows() ?
                 ["cmd", "/c", apksignerFile.absolutePath, "verify", "--verbose", "--print-certs", apkFile.absolutePath] :
                 [apksignerFile.absolutePath, "verify", "--verbose", "--print-certs", apkFile.absolutePath]
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] cmdList : [${cmdList.join(" ")}]"
         def signerResult = executeCommand(cmdList, 30)
         def signerOutput = signerResult.output
         if (!signerResult.finished) {
@@ -1851,7 +1918,7 @@ def parseApkFileInfo(flavorName, apkFile) {
         }
         if (signerResult.exitValue != 0 && signerResult.finished) {
             def errorDisplay = "apksigner exitValue : ${signerResult.exitValue}"
-            println "> Task :${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         if (signerResult.error != null && signerResult.error.trim().length() > 0) {
             String errorText = signerResult.error.trim()
@@ -1859,7 +1926,7 @@ def parseApkFileInfo(flavorName, apkFile) {
                 errorText = errorText.substring(0, 200) + "..."
             }
             def errorDisplay = "apksigner stderr : $errorText"
-            println "> Task :${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${errorDisplay}"
         }
         phaseEnd("apksignerVerify", apksignerStartAt)
         if ((signerOutput =~ /Verified using v1 scheme.*:\s*true/).find()) {
@@ -1959,12 +2026,11 @@ def analyzingApkInfo(flavorName, apkFile) {
     def methodName = {
         "analyzingApkInfo"
     }
-    println ""
     def startTime = System.currentTimeMillis()
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] finalApkFile : [" + (apkFile == null ? "null" : apkFile.getAbsolutePath()) + "]"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalApkFile : [" + (apkFile == null ? "null" : apkFile.getAbsolutePath()) + "]"
     if (apkFile == null || !apkFile.exists()) {
         def errorDisplay = "apkFile is not exist"
-        println "> Task :${project.name}:${methodName()} [" + flavorName + "] $errorDisplay"
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] $errorDisplay"
         return
     }
     try {
@@ -1998,7 +2064,7 @@ def analyzingApkInfo(flavorName, apkFile) {
         }
         println separator
         if (apkInfo.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] phase cost(ms) : " + apkInfo.phaseCost
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phase cost(ms) : " + apkInfo.phaseCost
         }
         if (false) {
             def fileName = apkFile.getName()
@@ -2013,17 +2079,17 @@ def analyzingApkInfo(flavorName, apkFile) {
                 }
                 writer.write(separator)
             }
-            println "> Task :${project.name}:${methodName()} [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
         }
     } catch (Exception e) {
-        println "> Task :${project.name}:${methodName()} [" + flavorName + "] error : " + e
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] error : " + e
         e.printStackTrace()
     }
     def endTime = System.currentTimeMillis()
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] consume time : " + (endTime - startTime)
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] consume time : " + (endTime - startTime)
 }
 
-def analyzingApkInfoInternal() {
+def analyzingApkInfoFlavor() {
     if (project.android.productFlavors.size() > 0) {
         project.android.productFlavors.each {
             analyzingApkInfoAll(it.name)
@@ -2037,8 +2103,9 @@ def analyzingApkInfoAll(flavorName) {
     def methodName = {
         "analyzingApkInfo"
     }
+    println ""
     def allApkFileList = getFileListByExtension(flavorName, "apk")
-    println "> Task :${project.name}:${methodName()} [" + flavorName + "] allApkFileList : " + allApkFileList
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] allApkFileList : " + allApkFileList
     allApkFileList.each {
         analyzingApkInfo(flavorName, it)
     }
