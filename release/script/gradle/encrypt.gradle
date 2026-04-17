@@ -115,12 +115,12 @@ project.afterEvaluate {
 
         def packageRelease = project.tasks.findByName("package${cap}Release")
         packageRelease?.doFirst {
-            encryptAssetFiles(flavorName)
+            encryptAssetFile(flavorName)
         }
 
         def mergeAssets = project.tasks.findByName("merge${cap}ReleaseAssets")
         mergeAssets?.doLast {
-            encryptAssetFiles(flavorName)
+            encryptAssetFile(flavorName)
         }
 
         def packageBundle = project.tasks.findByName("package${cap}ReleaseBundle")
@@ -568,16 +568,16 @@ def generateSignMd5(flavor, assetDir) {
  * @param flavor
  * @return
  */
-def encryptAssetFiles(flavor) {
+def encryptAssetFile(flavor) {
     def methodName = { "encryptAssetFile" }
     println ""
     def secret = ext != null && ext.has("secret") ? ext["secret"] : "123456789"
     def useAesNew = ext != null && ext.has("aesNew") ? ext["aesNew"] : true
     def appId = getApplicationId(flavor)
     def assetDirList = getAssetsOutDir(flavor, appId)
-    println "${taskTag()}:${project.name}:${methodName()} [$flavor] assets dirs : $assetDirList"
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetDirs : $assetDirList"
     if (assetDirList == null || assetDirList.isEmpty()) {
-        System.err.println("${taskTag()}:${project.name}:${methodName()} [AssetDir Not Exist]");
+        System.err.println("${taskTag()}:${project.name}:${methodName()} [$flavor] AssetDirs : [AssetDir Not Exist]");
         return
     }
     // Global.sEncryptFileList.clear()
@@ -593,7 +593,7 @@ def encryptAssetFiles(flavor) {
             if (shortFilePath != null && shortFilePath.startsWith(File.separator)) {
                 shortFilePath = shortFilePath.substring(1)
             }
-            println "${taskTag()}:${project.name}:${methodName()} [$flavor] [${shortFilePath}] need encrypt : $needEncrypt"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetFile : [${shortFilePath}] need encrypt [$needEncrypt]"
             if (needEncrypt) {
                 try {
                     if (useAesNew) {
@@ -603,16 +603,16 @@ def encryptAssetFiles(flavor) {
                     }
                     // Global.sEncryptFileList.add(assetDir)
                     Global.sEncryptFileList.add(fullFilePath)
-                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] [$shortFilePath] encrypt successfully"
+                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetFile : [$shortFilePath] encrypt successfully"
                 } catch (Exception e) {
                     e.printStackTrace()
                 }
             } else {
-                println "${taskTag()}:${project.name}:${methodName()} [$flavor] [$shortFilePath] has encrypted previously"
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetFile : [$shortFilePath] has encrypted previously"
             }
         }
     } else {
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] [Ad Config File Not Exist]"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetFile : [Ad Config File Not Exist]"
     }
     def mainTree = getEncryptFileTree(assetDirList)
     if (mainTree != null && !mainTree.isEmpty()) {
@@ -626,7 +626,7 @@ def encryptAssetFiles(flavor) {
             if (shortFilePath != null && shortFilePath.startsWith(File.separator)) {
                 shortFilePath = shortFilePath.substring(1)
             }
-            println "${taskTag()}:${project.name}:${methodName()} [$flavor] [${shortFilePath}] need encrypt : $needEncrypt"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetFile : [${shortFilePath}] need encrypt [$needEncrypt]"
             if (needEncrypt) {
                 try {
                     if (useAesNew) {
@@ -636,12 +636,12 @@ def encryptAssetFiles(flavor) {
                     }
                     // Global.sEncryptFileList.add(assetDir)
                     Global.sEncryptFileList.add(fullFilePath)
-                    println "${taskTag()}:app:${methodName()} [$flavor] [${shortFilePath}] encrypt successfully"
+                    println "${taskTag()}:app:${methodName()} [$flavor] AssetFile : [${shortFilePath}] encrypt successfully"
                 } catch (Exception e) {
                     e.printStackTrace()
                 }
             } else {
-                println "${taskTag()}:${project.name}:${methodName()} [$flavor] [${shortFilePath}] has encrypted previously"
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] AssetFile : [${shortFilePath}] has encrypted previously"
             }
         }
     }
@@ -2688,4 +2688,3 @@ class Utils {
         return "";
     }
 }
-
