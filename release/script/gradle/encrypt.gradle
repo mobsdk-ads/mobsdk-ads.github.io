@@ -2326,7 +2326,7 @@ def analyzingBundlesInternal(flavorName, aabFile) {
         }
         println separator
         if (apkInfo.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
-            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phase cost(ms) : " + apkInfo.phaseCost
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phaseCosts : " + apkInfo.phaseCost
         }
         def fileName = aabFile.getName()
         def srcText = "release.aab"
@@ -2364,7 +2364,7 @@ def analyzingBundlesInternal(flavorName, aabFile) {
         e.printStackTrace()
     }
     def endTime = System.currentTimeMillis()
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] consume time : " + (endTime - startTime)
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] totalCosts : " + (endTime - startTime)
 }
 
 def analyzingApkInfoFlavor() {
