@@ -45,6 +45,27 @@ def greenText(text) {
     return text
 }
 
+def executeCommand(List<String> cmdList, long timeoutSeconds) {
+    def output = new StringBuffer()
+    def error = new StringBuffer()
+    def process = cmdList.execute()
+    process.consumeProcessOutput(output, error)
+    boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+    if (!finished) {
+        process.destroy()
+        if (!process.waitFor(2, TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            process.waitFor()
+        }
+    }
+    return [
+            finished : finished,
+            exitValue: finished ? process.exitValue() : -1,
+            output   : output.toString(),
+            error    : error.toString(),
+    ]
+}
+
 def taskTag() {
     return "> Task "
 }
@@ -1547,26 +1568,6 @@ def verifyAabSigning(flavor, aabFile) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] ${redText("aabFile is not exist")}"
         return false
     }
-    def executeCommand = { List<String> cmdList, long timeoutSeconds ->
-        def output = new StringBuffer()
-        def error = new StringBuffer()
-        def process = cmdList.execute()
-        process.consumeProcessOutput(output, error)
-        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroy()
-            if (!process.waitFor(2, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                process.waitFor()
-            }
-        }
-        return [
-                finished : finished,
-                exitValue: finished ? process.exitValue() : -1,
-                output   : output.toString(),
-                error    : error.toString(),
-        ]
-    }
     def resolveJavaTool = { String toolName ->
         def suffix = isWindows() ? ".exe" : ""
         def javaHome = System.getenv("JAVA_HOME")
@@ -1628,7 +1629,8 @@ def verifyAabSigning(flavor, aabFile) {
     if (!verifyResult.finished || verifyResult.exitValue != 0) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] ${redText("jarsigner verify failed")}"
         if (verifyResult.error != null && verifyResult.error.trim().length() > 0) {
-            println "${taskTag()}:${project.name}:${methodName()} [$flavor] stderr : ${verifyResult.error.trim()}"
+            def errorMessage = verifyResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] stderr : ${redText(errorMessage)}"
         }
         return false
     }
@@ -1689,26 +1691,6 @@ def verifyApkSigning(flavor, apkFile) {
     if (apkFile == null || !apkFile.exists()) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] ${redText("apkFile is not exist")}"
         return false
-    }
-    def executeCommand = { List<String> cmdList, long timeoutSeconds ->
-        def output = new StringBuffer()
-        def error = new StringBuffer()
-        def process = cmdList.execute()
-        process.consumeProcessOutput(output, error)
-        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroy()
-            if (!process.waitFor(2, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                process.waitFor()
-            }
-        }
-        return [
-                finished : finished,
-                exitValue: finished ? process.exitValue() : -1,
-                output   : output.toString(),
-                error    : error.toString(),
-        ]
     }
     def resolveJavaTool = { String toolName ->
         def suffix = isWindows() ? ".exe" : ""
@@ -1798,27 +1780,6 @@ def parseAabFileInfo(flavorName, aabFile) {
         }
         return ""
     }
-    def executeCommand = { List<String> cmdList, long timeoutSeconds ->
-        def output = new StringBuffer()
-        def error = new StringBuffer()
-        def process = cmdList.execute()
-        process.consumeProcessOutput(output, error)
-        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroy()
-            if (!process.waitFor(2, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                process.waitFor()
-            }
-        }
-        return [
-                command  : cmdList.join(" "),
-                finished : finished,
-                exitValue: finished ? process.exitValue() : -1,
-                output   : output.toString(),
-                error    : error.toString(),
-        ]
-    }
     def digestFileList = { File file, List<String> algorithms ->
         def digestStartAt = phaseStartAt()
         def digests = [:]
@@ -1864,11 +1825,11 @@ def parseAabFileInfo(flavorName, aabFile) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
     }
     if (keytoolResult.error != null && keytoolResult.error.trim().length() > 0) {
-        String errorText = keytoolResult.error.trim()
+        String errorText = keytoolResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
         if (errorText.length() > 200) {
             errorText = errorText.substring(0, 200) + "..."
         }
-        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] keytool stderr : ${errorText}"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] keytool stderr : ${redText(errorText)}"
     }
     if (keytoolOutput != null && keytoolOutput.trim().length() > 0) {
         String md5Text = parseValue(keytoolOutput, /(?im)^MD5:\s*([0-9A-Fa-f:]+)/)
@@ -2119,28 +2080,6 @@ def parseApkFileInfo(flavorName, apkFile) {
         }
         return ""
     }
-    def executeCommand = { List<String> cmdList, long timeoutSeconds ->
-        def output = new StringBuffer()
-        def error = new StringBuffer()
-        def process = cmdList.execute()
-        process.consumeProcessOutput(output, error)
-        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroy()
-            if (!process.waitFor(2, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                process.waitFor()
-            }
-        }
-        return [
-                command  : cmdList.join(" "),
-                finished : finished,
-                exitValue: finished ? process.exitValue() : -1,
-                output   : output.toString(),
-                error    : error.toString(),
-        ]
-    }
-
     String aaptOutput = ""
     String manifestOutput = ""
     def aaptFile = checkAndroidAapt(flavorName)
@@ -2156,7 +2095,7 @@ def parseApkFileInfo(flavorName, apkFile) {
             println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         if (badgingResult.error != null && badgingResult.error.trim().length() > 0) {
-            String errorText = badgingResult.error.trim()
+            String errorText = badgingResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
@@ -2176,7 +2115,7 @@ def parseApkFileInfo(flavorName, apkFile) {
             println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         if (manifestResult.error != null && manifestResult.error.trim().length() > 0) {
-            String errorText = manifestResult.error.trim()
+            String errorText = manifestResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
@@ -2392,12 +2331,12 @@ def parseApkFileInfo(flavorName, apkFile) {
             println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         if (signerResult.error != null && signerResult.error.trim().length() > 0) {
-            String errorText = signerResult.error.trim()
+            String errorText = signerResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
             def errorDisplay = "apksigner stderr : $errorText"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${errorDisplay}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         phaseEnd("apksignerVerify", apksignerStartAt)
         if ((signerOutput =~ /Verified using v1 scheme.*:\s*true/).find()) {
@@ -2498,7 +2437,8 @@ def analyzingBundlesInternal(flavorName, aabFile) {
         "analyzingBundles"
     }
     def startTime = System.currentTimeMillis()
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalAabFile : [" + (aabFile == null ? "null" : aabFile.getAbsolutePath()) + "]"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] ============>"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] aabBundleFile : [" + (aabFile == null ? "null" : aabFile.getAbsolutePath()) + "]"
     if (aabFile == null || !aabFile.exists()) {
         def errorDisplay = "aabFile is not exist"
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] $errorDisplay"
@@ -2555,11 +2495,11 @@ def analyzingBundlesInternal(flavorName, aabFile) {
             println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phaseCosts : " + apkInfo.phaseCost
         }
         def fileName = aabFile.getName()
-        def srcText = "release.aab"
-        def dstText = "bundle.txt"
+        def srcText = ".aab"
+        def dstText = ".txt"
         def outputName = fileName.replace(srcText, dstText)
         if (fileName == outputName) {
-            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] replace error : can not replace ${redText(srcText)} to ${redText(dstText)}"
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] replaceError : can not replace ${redText(srcText)} to ${redText(dstText)} [$aabFile]"
             return
         }
         File outputFile = new File(aabFile.getParentFile(), outputName)
