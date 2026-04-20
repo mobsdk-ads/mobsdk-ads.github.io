@@ -1032,7 +1032,7 @@ def checkBundleFiles(flavor, apkFilePath) {
         if (bundleFiles != null && !bundleFiles.isEmpty()) {
             println "${taskTag()}:${project.name}:${methodName()} [$flavor] >>>"
             bundleFiles.forEach {
-                println "${taskTag()}:>>>> ${greenText(it)}"
+                println "${taskTag()}:>>> ${greenText(it)}"
             }
             println "${taskTag()}:${project.name}:${methodName()} [$flavor] <<<"
         }
@@ -1042,40 +1042,33 @@ def checkBundleFiles(flavor, apkFilePath) {
 afterEvaluate {
     try {
         def executeTasks = getGradle().getStartParameter().getTaskRequests()[0]["args"]
-        println "${taskTag()}:${project.name}:Task Start Params : $executeTasks"
+        println ""
+        println greenText("${taskTag()}:${project.name}:executeTaskHook >>>>>>>>>>>>>>>")
+        println greenText("${taskTag()}:${project.name}:executeTaskHook startParameters : $executeTasks")
         def taskName = null
         def tag = null
         executeTasks.each {
             def name = it.toString().toLowerCase(Locale.ENGLISH)
             if (name.contains("bundle") && name.contains("release")) {
                 taskName = it.toString()
-                tag = "bundle"
+                tag = "aab"
             } else if (name.contains("assemble") && name.contains("release")) {
                 taskName = it.toString()
                 tag = "apk"
             }
         }
-        println "${taskTag()}:${project.name}:Task Start Bundle : $taskName"
+        println greenText("${taskTag()}:${project.name}:executeTaskHook executeTaskName : $taskName")
         if (taskName != null) {
             def index = taskName.lastIndexOf(":")
             if (index > -1) {
                 taskName = taskName.substring(index + 1)
             }
-            def aTask = project.tasks.findByName(taskName)
-            if (aTask != null) {
-                aTask.doLast {
-                    if ("bundle".equals(tag)) {
-                        if (isAAB2ApkAllow()) {
-                            transformAab2ApkFlavor()
-                        } else {
-                            println "${taskTag()}:${project.name}:transformAab2Apk aab2apk is not set"
-                        }
-                    }
-                    printEncryptFileFlavor()
-                    analyzingBundlesFlavor()
-                    checkOutputFilesFlavor()
-                    openReleaseDir(taskName, tag)
-                }
+            project.tasks.findByName(taskName)?.doLast {
+                transformAab2ApkLocked(tag)
+                printEncryptFileFlavor()
+                analyzingBundlesFlavor()
+                checkOutputFilesFlavor()
+                openReleaseDir(taskName, tag)
             }
         }
     } catch (Exception e) {
@@ -1089,7 +1082,8 @@ def openReleaseDir(String taskName, String tag) {
     }
     if (isContainBundleRelease(taskName)) {
         try {
-            def outputPath = new File(project.buildDir, "outputs/$tag")
+            def finalDir = "aab".equals(tag) ? "bundle" : "apk"
+            def outputPath = new File(project.buildDir, "outputs/$finalDir")
             def outputReleasePath = new File(outputPath, "release")
             if (outputReleasePath.exists()) {
                 outputPath = outputReleasePath
@@ -1111,7 +1105,7 @@ def isContainBundleRelease(String taskName) {
     return false;
 }
 
-def isAAB2ApkAllow() {
+def isAab2ApkAllow() {
     def aab2apk = true
     if (ext.has("aab2apk")) {
         aab2apk = ext.get("aab2apk")
@@ -1151,6 +1145,16 @@ def transformAab2ApkFlavor() {
         def baseName = getNormalizeBaseName()
         def aabOutputAabFileName = baseName + "-release.aab"
         transformAab2ApkMixedLocked(null, aabOutputAabFileName)
+    }
+}
+
+def transformAab2ApkLocked(tag) {
+    if ("aab".equals(tag)) {
+        if (isAab2ApkAllow()) {
+            transformAab2ApkFlavor()
+        } else {
+            println "${taskTag()}:${project.name}:transformAab2Apk aab2apk is not set"
+        }
     }
 }
 
@@ -1829,7 +1833,7 @@ def parseAabFileInfo(flavorName, aabFile) {
         if (errorText.length() > 200) {
             errorText = errorText.substring(0, 200) + "..."
         }
-        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] keytool stderr : ${redText(errorText)}"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] keytoolStderr : ${redText(errorText)}"
     }
     if (keytoolOutput != null && keytoolOutput.trim().length() > 0) {
         String md5Text = parseValue(keytoolOutput, /(?im)^MD5:\s*([0-9A-Fa-f:]+)/)
@@ -2335,7 +2339,7 @@ def parseApkFileInfo(flavorName, apkFile) {
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
-            def errorDisplay = "apksigner stderr : $errorText"
+            def errorDisplay = "apksignStderr : $errorText"
             println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
         }
         phaseEnd("apksignerVerify", apksignerStartAt)
@@ -2550,9 +2554,9 @@ def printEncryptFileFlavorLocked(flavor) {
     Set<String> fileSet = getEncryptSet(flavor)
     if (fileSet != null && !fileSet.isEmpty()) {
         println ""
-        println "${taskTag()}:${project.name}:${methodName()} [${flavor}] [assets files encrypted result]"
+        println "${taskTag()}:${project.name}:${methodName()} [${flavor}] encryptAssets : [assets files encrypted result]"
         fileSet.forEach {
-            println "${taskTag()}:${project.name}:${methodName()} [${flavor}] [$it]"
+            println "${taskTag()}:${project.name}:${methodName()} [${flavor}] encryptAssets : [$it]"
         }
         println ""
     }
@@ -2594,7 +2598,7 @@ def analyzingBundlesLocked(flavorName) {
     }
     println ""
     def allAabFileList = getFileListByExtension(flavorName, "aab")
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] aabFilesList : " + allAabFileList
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] allBundleFile : " + allAabFileList
     allAabFileList.each {
         analyzingBundlesInternal(flavorName, it)
     }
