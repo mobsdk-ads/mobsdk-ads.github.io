@@ -177,6 +177,11 @@ project.afterEvaluate {
         doLast { transformAab2ApkFlavor() }
     }
 
+    project.tasks.create("checkOutputFiles") {
+        group "mobsdk"
+        doLast { checkOutputFilesFlavor() }
+    }
+
     project.tasks.create("newEncryptString") {
         group "mobsdk"
         doLast { newEncryptStringTask() }
@@ -931,32 +936,55 @@ def listZipDirectoryEntries(String zipPath, List<String> dirPrefixes) {
     return entries
 }
 
-def checkBundleFiles(flavor, apkFilePath) {
-    def methodName = { "checkBundleFiles" }
+def checkOutputFilesLocked(flavor, apkFilePath) {
+    zippingExtraFile(flavor, apkFilePath)
+    checkBundleFiles(flavor, apkFilePath)
+}
+
+def zippingExtraFile(flavor, apkFilePath) {
+    def methodName = { "zippingExtraFile" }
     def outputFile = file(apkFilePath)
-    def outputDir = outputFile.exists() ? outputFile.parentFile : null
-    def outputFileList = outputDir != null ? outputDir.list() : null
     try {
         if (outputFile != null && outputFile.exists()) {
             def tmpDir = outputFile.getParentFile()
             def outputName = outputFile.getName()
-            def srcMapping = new File(tmpDir, "mapping.txt")
-            if (srcMapping.exists()) {
-                def dstMapZipName = outputName.replaceAll(".aab", ".zip")
+            def fileTree = fileTree(dir: tmpDir)
+            fileTree.include("*.txt")
+            def waitForZipFiles = [] as Set
+            fileTree.each { file ->
+                if (file.name.endsWith(".txt")) {
+                    waitForZipFiles.add(file)
+                }
+            }
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] extraFiles : $waitForZipFiles"
+            if (waitForZipFiles.size() > 0) {
+                def dstMapZipName = outputName.replaceAll("release.aab", "outputs.zip")
                 def dstMapZipFile = new File(tmpDir, dstMapZipName)
                 if (dstMapZipFile.exists()) {
                     dstMapZipFile.delete()
                 }
                 println "${taskTag()}:${project.name}:${methodName()} [$flavor] zipMapping : $dstMapZipFile"
                 ant.zip(destfile: dstMapZipFile.absolutePath) {
-                    fileset(file: srcMapping.absolutePath)
+                    for (file in waitForZipFiles) {
+                        fileset(file: file.absolutePath)
+                    }
                 }
-                srcMapping.delete()
+                waitForZipFiles.each {
+                    it.delete()
+                }
             }
         }
     } catch (Exception e) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] zipMapping : $e"
     }
+}
+
+def checkBundleFiles(flavor, apkFilePath) {
+    def methodName = { "checkBundleFiles" }
+    def outputFile = file(apkFilePath)
+    def outputDir = outputFile.exists() ? outputFile.parentFile : null
+    def outputFileList = outputDir != null ? outputDir.list() : null
+    println ""
     println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
     println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputs : " + greenText("" + outputFileList)
     if (outputFile != null && outputFile.exists()) {
@@ -1011,8 +1039,8 @@ afterEvaluate {
                         }
                         println ""
                     }
-                    checkOutputFileFlavor()
                     analyzingApkInfoFlavor()
+                    checkOutputFilesFlavor()
                     openReleaseDir(taskName, tag)
                 }
             }
@@ -1093,13 +1121,13 @@ def transformAab2ApkFlavor() {
     }
 }
 
-def checkOutputFileFlavor() {
+def checkOutputFilesFlavor() {
     if (project.android.productFlavors.size() > 0) {// 如果有产品风味
         project.android.productFlavors.each { flavor ->
             def aabFileList = getFileListByExtension(flavor.name, "aab")
             if (aabFileList != null && !aabFileList.isEmpty()) {
                 aabFileList.each {
-                    checkBundleFiles(flavor.name, it.getAbsolutePath())
+                    checkOutputFilesLocked(flavor.name, it.getAbsolutePath())
                 }
             }
         }
@@ -1107,7 +1135,7 @@ def checkOutputFileFlavor() {
         def aabFileList = getFileListByExtension(null, "aab")
         if (aabFileList != null && !aabFileList.isEmpty()) {
             aabFileList.each {
-                checkBundleFiles(null, it.getAbsolutePath())
+                checkOutputFilesLocked(null, it.getAbsolutePath())
             }
         }
     }
@@ -1498,6 +1526,229 @@ def getReleaseSignConfig(flavor) {
     return signConfig
 }
 //////////////////////////////////////////////////////////////////////////////////////////
+def parseAabFileInfo(flavorName, aabFile) {
+    def methodName = {
+        "parseAabFileInfo"
+    }
+    def infoList = []
+    def phaseCost = [:]
+    def phaseStartAt = { ->
+        System.currentTimeMillis()
+    }
+    def phaseEnd = { String phaseName, long startAt ->
+        phaseCost[phaseName] = System.currentTimeMillis() - startAt
+    }
+    def putInfo = { String key, Object value ->
+        infoList.add([key: key, value: value == null ? "" : String.valueOf(value)])
+    }
+    def formatHex = { byte[] bytes ->
+        if (bytes == null || bytes.length == 0) {
+            return ""
+        }
+        return bytes.collect { String.format("%02X", it & 0xFF) }.join(":")
+    }
+    def parseHexBytes = { String hexText ->
+        if (hexText == null) {
+            return null
+        }
+        String normalized = hexText.replace(":", "").replace(" ", "").trim()
+        if (normalized.length() == 0) {
+            return null
+        }
+        if (normalized.length() % 2 != 0) {
+            throw new IllegalArgumentException("invalid hex length: " + normalized.length())
+        }
+        byte[] result = new byte[normalized.length() / 2]
+        for (int i = 0; i < normalized.length(); i += 2) {
+            result[i / 2] = (byte) Integer.parseInt(normalized.substring(i, i + 2), 16)
+        }
+        return result
+    }
+    def parseValue = { String text, String regex ->
+        if (text == null || text.trim().length() == 0) {
+            return ""
+        }
+        def matcher = (text =~ regex)
+        if (matcher.find()) {
+            return matcher.group(1)
+        }
+        return ""
+    }
+    def executeCommand = { List<String> cmdList, long timeoutSeconds ->
+        def output = new StringBuffer()
+        def error = new StringBuffer()
+        def process = cmdList.execute()
+        process.consumeProcessOutput(output, error)
+        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+        if (!finished) {
+            process.destroy()
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                process.waitFor()
+            }
+        }
+        return [
+                command  : cmdList.join(" "),
+                finished : finished,
+                exitValue: finished ? process.exitValue() : -1,
+                output   : output.toString(),
+                error    : error.toString(),
+        ]
+    }
+    def digestFileList = { File file, List<String> algorithms ->
+        def digestStartAt = phaseStartAt()
+        def digests = [:]
+        algorithms.each { algorithm ->
+            digests[algorithm] = MessageDigest.getInstance(algorithm)
+        }
+        file.withInputStream { input ->
+            byte[] buffer = new byte[8192]
+            int len
+            while ((len = input.read(buffer)) > 0) {
+                digests.values().each { digest ->
+                    digest.update(buffer, 0, len)
+                }
+            }
+        }
+        def results = [:]
+        digests.each { algorithm, digest ->
+            results[algorithm] = digest.digest()
+        }
+        phaseEnd("fileDigest", digestStartAt)
+        return results
+    }
+
+    byte[] certMd5 = null
+    byte[] certSha1 = null
+    byte[] certSha256 = null
+    String certDn = ""
+    String signDetail = ""
+
+    def keytoolCmdList = isWindows() ?
+            ["cmd", "/c", "keytool", "-printcert", "-jarfile", aabFile.absolutePath] :
+            ["keytool", "-printcert", "-jarfile", aabFile.absolutePath]
+    println "${taskTag()}:${project.name}:${methodName()} [$flavorName] cmdList : [${keytoolCmdList.join(" ")}]"
+    def keytoolStartAt = phaseStartAt()
+    def keytoolResult = executeCommand(keytoolCmdList, 30)
+    phaseEnd("keytoolPrintcert", keytoolStartAt)
+    def keytoolOutput = keytoolResult.output
+    if (!keytoolResult.finished) {
+        putInfo("签名校验", "AAB keytool timeout")
+    }
+    if (keytoolResult.exitValue != 0 && keytoolResult.finished) {
+        def errorDisplay = "keytool exitValue : ${keytoolResult.exitValue}"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+    }
+    if (keytoolResult.error != null && keytoolResult.error.trim().length() > 0) {
+        String errorText = keytoolResult.error.trim()
+        if (errorText.length() > 200) {
+            errorText = errorText.substring(0, 200) + "..."
+        }
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] keytool stderr : ${errorText}"
+    }
+    if (keytoolOutput != null && keytoolOutput.trim().length() > 0) {
+        String md5Text = parseValue(keytoolOutput, /(?im)^MD5:\s*([0-9A-Fa-f:]+)/)
+        String sha1Text = parseValue(keytoolOutput, /(?im)^SHA1:\s*([0-9A-Fa-f:]+)/)
+        String sha256Text = parseValue(keytoolOutput, /(?im)^SHA256:\s*([0-9A-Fa-f:]+)/)
+        String owner = parseValue(keytoolOutput, /(?im)^Owner:\s*(.+)/)
+        String issuer = parseValue(keytoolOutput, /(?im)^Issuer:\s*(.+)/)
+        String serialNumber = parseValue(keytoolOutput, /(?im)^Serial number:\s*(.+)/)
+        String validFrom = parseValue(keytoolOutput, /(?im)^Valid from:\s*(.+)/)
+        String sigAlgName = parseValue(keytoolOutput, /(?im)^Signature algorithm name:\s*(.+)/)
+        String subjectPublicKeyAlgorithm = parseValue(keytoolOutput, /(?im)^Subject Public Key Algorithm:\s*(.+)/)
+        String version = parseValue(keytoolOutput, /(?im)^Version:\s*(.+)/)
+        if (md5Text) {
+            certMd5 = parseHexBytes(md5Text)
+        }
+        if (sha1Text) {
+            certSha1 = parseHexBytes(sha1Text)
+        }
+        if (sha256Text) {
+            certSha256 = parseHexBytes(sha256Text)
+        }
+        certDn = owner
+        signDetail = [
+                owner ? "Owner=${owner}" : "",
+                issuer ? "Issuer=${issuer}" : "",
+                serialNumber ? "SerialNumber=${serialNumber}" : "",
+                validFrom ? "ValidFrom=${validFrom}" : "",
+                sigAlgName ? "SignatureAlgorithm=${sigAlgName}" : "",
+                subjectPublicKeyAlgorithm ? "PublicKeyAlgorithm=${subjectPublicKeyAlgorithm}" : "",
+                version ? "Version=${version}" : "",
+        ].findAll { it != null && it.trim().length() > 0 }.join("; ")
+    }
+
+    if (certSha1 == null || certSha256 == null || certMd5 == null || !certDn) {
+        def jarFallbackStartAt = phaseStartAt()
+        java.util.jar.JarFile jarFile = new java.util.jar.JarFile(aabFile, true)
+        try {
+            byte[] buffer = new byte[8192]
+            def entries = jarFile.entries()
+            while (entries.hasMoreElements() && (certSha1 == null || certSha256 == null || certMd5 == null || !certDn)) {
+                java.util.jar.JarEntry entry = entries.nextElement()
+                if (entry.isDirectory() || entry.getName().startsWith("META-INF/")) {
+                    continue
+                }
+                InputStream inputStream = jarFile.getInputStream(entry)
+                try {
+                    while (inputStream.read(buffer) != -1) {
+                    }
+                } finally {
+                    inputStream.close()
+                }
+                def certificates = entry.getCertificates()
+                if (certificates != null && certificates.length > 0 && certificates[0] instanceof java.security.cert.X509Certificate) {
+                    java.security.cert.X509Certificate certificate = certificates[0]
+                    byte[] certBytes = certificate.getEncoded()
+                    certMd5 = MessageDigest.getInstance("MD5").digest(certBytes)
+                    certSha1 = MessageDigest.getInstance("SHA-1").digest(certBytes)
+                    certSha256 = MessageDigest.getInstance("SHA-256").digest(certBytes)
+                    certDn = certificate.getSubjectX500Principal().getName()
+                    if (!signDetail) {
+                        signDetail = [
+                                "${certificate.getSubjectX500Principal().getName()}"/*,
+                                "Issuer=${certificate.getIssuerX500Principal().getName()}",
+                                "SerialNumber=${certificate.getSerialNumber().toString(16)}",
+                                "ValidFrom=${certificate.getNotBefore()} until ${certificate.getNotAfter()}",
+                                "SignatureAlgorithm=${certificate.getSigAlgName()}",
+                                "PublicKeyAlgorithm=${certificate.getPublicKey() == null ? '' : certificate.getPublicKey().getAlgorithm()}",
+                                "Version=${certificate.getVersion()}",*/
+                        ].join("; ")
+                    }
+                }
+            }
+        } finally {
+            jarFile.close()
+        }
+        phaseEnd("jarSignatureFallback", jarFallbackStartAt)
+    }
+
+    def fileDigestMap = digestFileList(aabFile, ["MD5", "SHA-1", "SHA-256"])
+
+    putInfo("签名摘要", formatHex(certMd5))
+    putInfo("签名哈希", formatHex(certSha1))
+    putInfo("签名哈希", formatHex(certSha256))
+    putInfo("散列密钥", certSha1 == null ? "" : certSha1.encodeBase64().toString())
+    putInfo("签名详情", signDetail ?: certDn)
+
+    putInfo("文件摘要", formatHex(fileDigestMap["MD5"]))
+    putInfo("文件哈希", formatHex(fileDigestMap["SHA-1"]))
+    putInfo("文件哈希", formatHex(fileDigestMap["SHA-256"]))
+
+    return [
+            infoList  : infoList,
+            phaseCost : phaseCost,
+            signMd5   : formatHex(certMd5),
+            signSha1  : formatHex(certSha1),
+            signSha256: formatHex(certSha256),
+            signKey   : certSha1 == null ? "" : certSha1.encodeBase64().toString(),
+            signDetail: signDetail ?: certDn,
+            fileMd5   : formatHex(fileDigestMap["MD5"]),
+            fileSha1  : formatHex(fileDigestMap["SHA-1"]),
+            fileSha256: formatHex(fileDigestMap["SHA-256"]),
+    ]
+}
+
 def parseApkFileInfo(flavorName, apkFile) {
     def methodName = {
         "parseApkFileInfo"
@@ -2016,19 +2267,26 @@ def parseApkFileInfo(flavorName, apkFile) {
     ]
 }
 
-def analyzingApkInfo(flavorName, apkFile) {
+def analyzingBundlesInternal(flavorName, aabFile) {
     def methodName = {
-        "analyzingApkInfo"
+        "analyzingBundles"
     }
     def startTime = System.currentTimeMillis()
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalApkFile : [" + (apkFile == null ? "null" : apkFile.getAbsolutePath()) + "]"
-    if (apkFile == null || !apkFile.exists()) {
-        def errorDisplay = "apkFile is not exist"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalAabFile : [" + (aabFile == null ? "null" : aabFile.getAbsolutePath()) + "]"
+    if (aabFile == null || !aabFile.exists()) {
+        def errorDisplay = "aabFile is not exist"
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] $errorDisplay"
         return
     }
     try {
-        def apkInfo = parseApkFileInfo(flavorName, apkFile)
+        def aabInfo = parseAabFileInfo(flavorName, aabFile)
+        def apkFile = new File(aabFile.getParentFile(), aabFile.getName().replace(".aab", ".apk"))
+        def apkInfo = null
+        if (apkFile.exists()) {
+            apkInfo = parseApkFileInfo(flavorName, apkFile)
+        } else {
+            apkInfo = null
+        }
         def separator = "------------------------------------------------------------------------------------------------------------------------------------"
         def missingText = "不存在"
         def enabledText = "开启"
@@ -2043,38 +2301,64 @@ def analyzingApkInfo(flavorName, apkFile) {
                 "明文传输",
         ] as Set
         println separator
-        apkInfo.infoList.each { item ->
-            def outputValue = item.value
-            if (highlightMissingKeySet.contains(item.key) && missingText.equals(item.value)) {
-                outputValue = redText(item.value)
+        println "AAB文件信息 -->"
+        println separator
+        aabInfo.infoList.each { item ->
+            println "    " + item.key + " | " + item.value
+        }
+        if (apkInfo != null) {
+            println separator
+            println "APK文件信息 -->"
+            println separator
+            apkInfo.infoList.each { item ->
+                def outputValue = item.value
+                if (highlightMissingKeySet.contains(item.key) && missingText.equals(item.value)) {
+                    outputValue = redText(item.value)
+                }
+                if (highlightEnabledKeySet.contains(item.key) && enabledText.equals(item.value)) {
+                    outputValue = redText(item.value)
+                }
+                if ("谷歌标识".equals(item.key) && testAdmobAppId.equals(apkInfo.admobAppId)) {
+                    outputValue = redText("[测试广告]" + item.value)
+                }
+                println "    " + item.key + " | " + outputValue
             }
-            if (highlightEnabledKeySet.contains(item.key) && enabledText.equals(item.value)) {
-                outputValue = redText(item.value)
-            }
-            if ("谷歌标识".equals(item.key) && testAdmobAppId.equals(apkInfo.admobAppId)) {
-                outputValue = redText("[测试广告]" + item.value)
-            }
-            println " " + item.key + " | " + outputValue
         }
         println separator
         if (apkInfo.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
             println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phase cost(ms) : " + apkInfo.phaseCost
         }
-        if (false) {
-            def fileName = apkFile.getName()
-            def outputName = fileName.replace("release.apk", "apkinfo.txt")
-            File outputFile = new File(apkFile.getParentFile(), outputName)
-            outputFile.withWriter("UTF-8") { writer ->
+        def fileName = aabFile.getName()
+        def srcText = "release.aab"
+        def dstText = "bundle.txt"
+        def outputName = fileName.replace(srcText, dstText)
+        if (fileName == outputName) {
+            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] replace error : can not replace ${redText(srcText)} to ${redText(dstText)}"
+            return
+        }
+        File outputFile = new File(aabFile.getParentFile(), outputName)
+        outputFile.withWriter("UTF-8") { writer ->
+            writer.write(separator)
+            writer.write(System.lineSeparator())
+            writer.write("AAB文件信息 -->")
+            writer.write(System.lineSeparator())
+            aabInfo.infoList.each { item ->
+                writer.write("    " + item.key + " | " + item.value)
+                writer.write(System.lineSeparator())
+            }
+            if (apkInfo != null) {
+                writer.write(separator)
+                writer.write(System.lineSeparator())
+                writer.write("APK文件信息 -->")
+                writer.write(System.lineSeparator())
                 apkInfo.infoList.each { item ->
-                    writer.write(separator)
-                    writer.write(System.lineSeparator())
-                    writer.write(" " + item.key + " | " + item.value)
+                    writer.write("    " + item.key + " | " + item.value)
                     writer.write(System.lineSeparator())
                 }
-                writer.write(separator)
             }
-            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
+            writer.write(separator)
         }
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
     } catch (Exception e) {
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] error : " + e
         e.printStackTrace()
@@ -2086,22 +2370,22 @@ def analyzingApkInfo(flavorName, apkFile) {
 def analyzingApkInfoFlavor() {
     if (project.android.productFlavors.size() > 0) {
         project.android.productFlavors.each {
-            analyzingApkInfoAll(it.name)
+            analyzingBundlesLocked(it.name)
         }
     } else {
-        analyzingApkInfoAll(null)
+        analyzingBundlesLocked(null)
     }
 }
 
-def analyzingApkInfoAll(flavorName) {
+def analyzingBundlesLocked(flavorName) {
     def methodName = {
-        "analyzingApkInfo"
+        "analyzingBundles"
     }
     println ""
-    def allApkFileList = getFileListByExtension(flavorName, "apk")
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] allApkFileList : " + allApkFileList
-    allApkFileList.each {
-        analyzingApkInfo(flavorName, it)
+    def allAabFileList = getFileListByExtension(flavorName, "aab")
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] allAabFileList : " + allAabFileList
+    allAabFileList.each {
+        analyzingBundlesInternal(flavorName, it)
     }
 }
 
