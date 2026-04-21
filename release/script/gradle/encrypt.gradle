@@ -2484,6 +2484,7 @@ def analyzingBundlesInternal(flavorName, aabFile) {
                 "脸书标识",
                 "脸书令牌",
                 "广告配置",
+                "广告标识",
         ] as Set
         def highlightKeySet = [
                 "高危权限",
@@ -2520,17 +2521,10 @@ def analyzingBundlesInternal(flavorName, aabFile) {
             }
         }
         println separator
-        if (apkInfo.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
+        if (apkInfo?.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
             println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phaseCosts : " + apkInfo.phaseCost
         }
-        def fileName = aabFile.getName()
-        def srcText = ".aab"
-        def dstText = ".txt"
-        def outputName = fileName.replace(srcText, dstText)
-        if (fileName == outputName) {
-            println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] replaceError : can not replace ${redText(srcText)} to ${redText(dstText)} [$aabFile]"
-            return
-        }
+        def outputName = "bundleinfo.txt"
         File outputFile = new File(aabFile.getParentFile(), outputName)
         outputFile.withWriter("UTF-8") { writer ->
             writer.write(separator)
