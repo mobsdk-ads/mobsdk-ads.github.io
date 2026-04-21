@@ -14,6 +14,32 @@ import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
+/** // 脚本中使用的配置信息
+ext {
+    // 混淆文件中需要移除的字符串前缀
+    proguardBlackString = ['com.argon.', 'com.google.ads.mediation.custom.']
+    // assets文件夹下的需要加密的文件
+    encryptFiles = ["mob_cpevent_config", "mob_network_config", "mob_place_config", "mob_replace_config", "mob_disable_config", "mob_default_config"]
+    // 是否允许aab文件自动转成apk文件
+    allowAab2Apk = true
+    // aab/apk编译完成后是否自动打开文件夹
+    openRelease = true
+    // 是否允许使用新的aes加密方法
+    allowAesNew = true
+    // 是否允许动态添加maven仓库地址
+    // allowDynamicMaven = true
+    // 需要从aab的BUNDLE-METADATA文件夹下移除的文件
+    // removeBundleFile = ["dependencies.pb", "proguard.map"]
+    // 渠道列表, 每个aab都会按照渠道列表生成多个apk，并且在apk的assets文件夹下面生成相应的渠道文件
+    // channels = ["rustore", "amazon"]
+    // 在apk的assets文件夹下生成相应的渠道文件名称, 默认为ss_channel_cfg
+    // channelFileName = "channel_file"
+    // aab转apk时使用的签名信息，如果没有配置，则使用默认的签名信息
+    // signingConfig = [keyAlias: "taugin", keyPassword: "123456", storeFile: file('../keystore/taugin_pwd_123456.jks'), storePassword: "123456"]
+}
+*/
+
+
 /**
  * 首字母转大写
  * @param s
@@ -111,18 +137,21 @@ def mavenUrls = [
         "https://android-sdk.is.com/",
         "https://artifact.bytedance.com/repository/pangle",
         "https://artifacts.applovin.com/android",
-        // "https://artifactory.verizonmedia.com/artifactory/maven",
 ]
 try {
-    def useInternalMaven = ext.has("useDynamicMaven") ? ext["useDynamicMaven"] : true
+    def useInternalMaven = ext.find("allowDynamicMaven") != false
     if (useInternalMaven) {
-        def sdkMavenUrls = ext.has("mavenUrls") ? ext["mavenUrls"] : mavenUrls
         project.rootProject.allprojects.repositories.each {
             repo ->
-                for (String url : sdkMavenUrls) {
+                for (String url : mavenUrls) {
                     repo.maven { r -> r.url = url }
                 }
         }
+        println("======================add maven address======================")
+        mavenUrls.each {
+            println("$it")
+        }
+        println("======================add maven success======================")
     }
 } catch (Exception e) {
     println("add maven error : " + e)
@@ -387,7 +416,7 @@ def getApplicationId(flavor) {
     return productFlavor.applicationId
 }
 
-def addToOutDirList(List assetsOutDirList, outAssetsDir) {
+def addToOutDirList(Set assetsOutDirList, outAssetsDir) {
     if (assetsOutDirList != null && outAssetsDir != null) {
         def finalAssetsDir = new File(project.getBuildDir(), outAssetsDir)
         if (finalAssetsDir.exists()) {
@@ -407,10 +436,9 @@ def getAssetsOutDir(flavor, appId) {
     }
     def productFlavor = toUpperCaseFirstOne(flavor)
     def flavorNoSlash = productFlavor == null ? "" : productFlavor
-    List<File> assetsOutDirList = []
-    def outAssetsDir = null
+    def assetsOutDirList = [] as Set
     // 增加所有可能的Assets目录
-    outAssetsDir = String.format("intermediates/assets/%s/release", flavorNoSlash)
+    def outAssetsDir = String.format("intermediates/assets/%s/release", flavorNoSlash)
     addToOutDirList(assetsOutDirList, outAssetsDir)
 
     outAssetsDir = String.format("intermediates/merged_assets/%srelease/merge%sReleaseAssets/out", flavorNoSlash, flavorNoSlash)
@@ -504,7 +532,7 @@ def getConfigNameList(appId) {
  * @param appId
  * @return
  */
-def getAdConfigFile(List<File> assetsDirList, appId) {
+def getAdConfigFile(Set assetsDirList, appId) {
     def pkgnameMd5 = Utils.string2MD5(appId)
     def adConfigNameList = ["mob" + pkgnameMd5.substring(0, 8), "app_mob_data"]
     def adSuffixNameList = [getSuffix(), getSuffixJson()]
@@ -530,7 +558,7 @@ def getAdConfigFile(List<File> assetsDirList, appId) {
  * @param assetDir
  * @return
  */
-def getEncryptFileTree(List assetDirList) {
+def getEncryptFileTree(Set assetDirList) {
     def encryptFilePathMap = null
     if (assetDirList != null && !assetDirList.isEmpty()) {
         List output = ext != null && ext.has("encryptFiles") ? ext.encryptFiles : null
@@ -618,7 +646,7 @@ def encryptAssetFile(flavor) {
     def methodName = { "encryptAssetFile" }
     println ""
     def secret = ext != null && ext.has("secret") ? ext["secret"] : "123456789"
-    def useAesNew = ext != null && ext.has("aesNew") ? ext["aesNew"] : true
+    def useAesNew = ext.find("allowAesNew") != false
     def appId = getApplicationId(flavor)
     def assetDirList = getAssetsOutDir(flavor, appId)
     println "${taskTag()}:${project.name}:${methodName()} [$flavor] assetDirs : $assetDirList"
@@ -736,39 +764,37 @@ def signAabWithJarsigner(String aabFilePath, String keystorePath, String storePa
 
 def removeBundleFile(flavor, aapFilePath) {
     def methodName = { "removeBundleFile" }
-    if (ext.has("removeBundleFile")) {
-        List<String> bundleMetaData = ext.get("removeBundleFile")
-        if (bundleMetaData == null || bundleMetaData.isEmpty()) {
-            return
-        }
-        def flavorName = flavor != null ? flavor : ""
-        def outputFile = file(aapFilePath)
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] specialOutput : " + outputFile
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] specialBundle : 签名之前删除元数据文件" + bundleMetaData
-        if (outputFile != null && outputFile.exists()) {
-            def aaptFile = checkAndroidAapt(flavor)
-            if (aaptFile != null && new File(aaptFile).exists()) {
-                def cmdList = ["aapt", "r", outputFile.absolutePath]
-                List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
-                def bundleFilesToRemove = []
-                bundleFiles.forEach {
-                    for (name in bundleMetaData) {
-                        if (it.endsWith(name)) {
-                            bundleFilesToRemove.add(it)
-                        }
+    List<String> bundleMetaData = ext.find("removeBundleFile")
+    if (bundleMetaData == null || bundleMetaData.isEmpty()) {
+        return
+    }
+    def flavorName = flavor != null ? flavor : ""
+    def outputFile = file(aapFilePath)
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] specialOutput : " + outputFile
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] specialBundle : 签名之前删除元数据文件" + bundleMetaData
+    if (outputFile != null && outputFile.exists()) {
+        def aaptFile = checkAndroidAapt(flavor)
+        if (aaptFile != null && new File(aaptFile).exists()) {
+            def cmdList = ["aapt", "r", outputFile.absolutePath]
+            List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
+            def bundleFilesToRemove = []
+            bundleFiles.forEach {
+                for (name in bundleMetaData) {
+                    if (it.endsWith(name)) {
+                        bundleFilesToRemove.add(it)
                     }
                 }
-                if (bundleFilesToRemove.size() > 0) {
-                    bundleFilesToRemove.forEach {
-                        cmdList.add(it)
-                    }
-                    def cmdString = cmdList.join(" ")
-                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] RemoveCommand : " + optimizeCommand(cmdString)
-                    def result = cmdList.execute().text
-                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] CommandResult : " + result
-                } else {
-                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] No bundleMetaData to remove"
+            }
+            if (bundleFilesToRemove.size() > 0) {
+                bundleFilesToRemove.forEach {
+                    cmdList.add(it)
                 }
+                def cmdString = cmdList.join(" ")
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] RemoveCommand : " + optimizeCommand(cmdString)
+                def result = cmdList.execute().text
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] CommandResult : " + result
+            } else {
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] No bundleMetaData to remove"
             }
         }
     }
@@ -776,65 +802,63 @@ def removeBundleFile(flavor, aapFilePath) {
 
 def removeBundleMetaData(flavor) {
     def methodName = { "removeBundleMetaData" }
-    if (ext.has("removeBundleMetaData")) {
-        List<String> bundleMetaData = ext.get("removeBundleMetaData")
-        if (bundleMetaData == null || bundleMetaData.isEmpty()) {
-            return
-        }
-        def flavorName = flavor != null ? flavor : ""
-        def outputFile = null
-        def outputDir = getBuildDir()
-        outputDir = new File(outputDir, "outputs")
-        outputDir = new File(outputDir, "bundle")
-        if (flavor != null) {
-            outputDir = new File(outputDir, flavorName + "Release")
-        } else {
-            outputDir = new File(outputDir, "release")
-        }
-        File[] outputFileList = outputDir.listFiles()
-        if (outputFileList != null && outputFileList.length > 0) {
-            outputFileList.each {
-                if (it.absolutePath.endsWith(".aab")) {
-                    outputFile = it
-                }
+    List<String> bundleMetaData = ext.find("removeBundleMetaData")
+    if (bundleMetaData == null || bundleMetaData.isEmpty()) {
+        return
+    }
+    def flavorName = flavor != null ? flavor : ""
+    def outputFile = null
+    def outputDir = getBuildDir()
+    outputDir = new File(outputDir, "outputs")
+    outputDir = new File(outputDir, "bundle")
+    if (flavor != null) {
+        outputDir = new File(outputDir, flavorName + "Release")
+    } else {
+        outputDir = new File(outputDir, "release")
+    }
+    File[] outputFileList = outputDir.listFiles()
+    if (outputFileList != null && outputFileList.length > 0) {
+        outputFileList.each {
+            if (it.absolutePath.endsWith(".aab")) {
+                outputFile = it
             }
         }
-        println ""
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] flavorName : " + flavorName
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputDir : " + outputDir
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFiles : " + outputDir.list()
-        if (outputFile != null && outputFile.exists()) {
-            def aaptFile = checkAndroidAapt(flavor)
-            if (aaptFile != null && new File(aaptFile).exists()) {
-                println "${taskTag()}:${project.name}:${methodName()} [$flavor] aapt file : $aaptFile"
-                def cmdList = ["aapt", "r", outputFile.absolutePath]
-                List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
-                bundleFiles.forEach {
-                    for (name in bundleMetaData) {
-                        if (it.endsWith(name)) {
-                            cmdList.add(it)
-                        }
+    }
+    println ""
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] flavorName : " + flavorName
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputDir : " + outputDir
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFiles : " + outputDir.list()
+    if (outputFile != null && outputFile.exists()) {
+        def aaptFile = checkAndroidAapt(flavor)
+        if (aaptFile != null && new File(aaptFile).exists()) {
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] aapt file : $aaptFile"
+            def cmdList = ["aapt", "r", outputFile.absolutePath]
+            List<String> bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/"])
+            bundleFiles.forEach {
+                for (name in bundleMetaData) {
+                    if (it.endsWith(name)) {
+                        cmdList.add(it)
                     }
                 }
-                def cmdString = cmdList.join(" ")
-                println "${taskTag()}:${project.name}:${methodName()} [$flavor] execute remove bundle metadata cmd : " + cmdString
-                def result = cmdList.execute().text
-                println "${taskTag()}:${project.name}:${methodName()} [$flavor] execute remove bundle metadata result : " + result
-                def signConfig = getAab2ApkSignConfig(flavor)
-                if (signConfig == null || !signConfig.containsKey("storeFile")
-                        || !signConfig.containsKey("storePassword")
-                        || !signConfig.containsKey("keyAlias")
-                        || !signConfig.containsKey("keyPassword")) {
-                    println "${taskTag()}:${project.name}:${methodName()} [$flavor] signConfig is not completion"
-                    return
-                }
-                def storeFile = signConfig.storeFile
-                def storePassword = signConfig.storePassword
-                def keyAlias = signConfig.keyAlias
-                def keyPassword = signConfig.keyPassword
-                signAabWithJarsigner(outputFile.absolutePath, storeFile.absolutePath, storePassword, keyAlias, keyPassword)
             }
+            def cmdString = cmdList.join(" ")
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] execute remove bundle metadata cmd : " + cmdString
+            def result = cmdList.execute().text
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] execute remove bundle metadata result : " + result
+            def signConfig = getAab2ApkSignConfig(flavor)
+            if (signConfig == null || !signConfig.containsKey("storeFile")
+                    || !signConfig.containsKey("storePassword")
+                    || !signConfig.containsKey("keyAlias")
+                    || !signConfig.containsKey("keyPassword")) {
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] signConfig is not completion"
+                return
+            }
+            def storeFile = signConfig.storeFile
+            def storePassword = signConfig.storePassword
+            def keyAlias = signConfig.keyAlias
+            def keyPassword = signConfig.keyPassword
+            signAabWithJarsigner(outputFile.absolutePath, storeFile.absolutePath, storePassword, keyAlias, keyPassword)
         }
     }
 }
@@ -1121,28 +1145,16 @@ def isContainBundleRelease(String taskName) {
     return false;
 }
 
-def isAab2ApkAllow() {
-    def aab2apk = true
-    if (ext.has("aab2apk")) {
-        aab2apk = ext.get("aab2apk")
-    }
-    return aab2apk
+def isAllowAab2Apk() {
+    return ext.find("allowAab2Apk") != false
 }
 
 def getChannelList() {
-    def channel_list = null
-    if (ext.has("channels")) {
-        channel_list = ext.get("channels")
-    }
-    return channel_list
+    return ext.find("channels") ?: []
 }
 
 def getChannelFileName() {
-    def channelFileName = null
-    if (ext.has("channelFileName")) {
-        channelFileName = ext.get("channelFileName")
-    }
-    return channelFileName
+    return ext.find("channelFileName")
 }
 
 def transformAab2ApkFlavor() {
@@ -1166,7 +1178,7 @@ def transformAab2ApkFlavor() {
 
 def transformAab2ApkLocked(tag) {
     if ("aab".equals(tag)) {
-        if (isAab2ApkAllow()) {
+        if (isAllowAab2Apk()) {
             transformAab2ApkFlavor()
         } else {
             println "${taskTag()}:${project.name}:transformAab2Apk aab2apk is not set"
@@ -1382,7 +1394,7 @@ def appendChannelToAabFile(aabFilePath, channel, releaseDir, flavorName, channel
     tempBase.mkdirs()
     File tempAssets = new File(tempBase, "assets")
     tempAssets.mkdirs()
-    if (channelFileName == null) {
+    if (channelFileName == null || channelFileName.isEmpty()) {
         channelFileName = "ss_channel_cfg"
     }
     File channelFile = new File(tempAssets, channelFileName)
@@ -1529,15 +1541,13 @@ def optimizeCommand(cmdString, delimiter = " ") {
  * @return
  */
 def getAab2ApkSignConfig(flavor) {
-    if (ext.has("signingConfig")) {
-        signingConfig = ext.get("signingConfig")
-        if (signingConfig != null
-                && signingConfig.containsKey("keyAlias")
-                && signingConfig.containsKey("keyPassword")
-                && signingConfig.containsKey("storeFile")
-                && signingConfig.containsKey("storePassword")) {
-            return signingConfig
-        }
+    def signingConfig = ext.find("signingConfig")
+    if (signingConfig != null
+            && signingConfig.containsKey("keyAlias")
+            && signingConfig.containsKey("keyPassword")
+            && signingConfig.containsKey("storeFile")
+            && signingConfig.containsKey("storePassword")) {
+        return signingConfig
     }
     def signConfig = getReleaseSignConfig(flavor)
     if (signConfig != null && signConfig.hasProperty("storeFile")
@@ -1967,7 +1977,7 @@ def parseApkFileInfo(flavorName, apkFile) {
         System.currentTimeMillis()
     }
     def phaseEnd = { String phaseName, long startAt ->
-        phaseCost[phaseName] = System.currentTimeMillis() - startAt
+        phaseCost[phaseName] = (System.currentTimeMillis() - startAt) + "ms"
     }
     def putInfo = { String key, Object value ->
         infoList.add([key: key, value: value == null ? "" : String.valueOf(value)])
@@ -2040,7 +2050,7 @@ def parseApkFileInfo(flavorName, apkFile) {
         java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(targetApkFile)
         try {
             String entryName = "assets/" + assetFileName
-            return zipFile.getEntry(entryName) != null ? assetFileName : "$missingText$assetFileName"
+            return zipFile.getEntry(entryName) != null ? assetFileName : "$missingText[$assetFileName]"
         } finally {
             zipFile.close()
         }
@@ -2221,7 +2231,8 @@ def parseApkFileInfo(flavorName, apkFile) {
     def targetSdk = parseAaptValue(aaptOutput, /targetSdkVersion:'([^']*)'/)
     def fileSize = formatFileSize(apkFile.length())
     def allPermissions = parseAaptValues(aaptOutput, /uses-permission(?:-[^:]*)?:\s+name='([^']+)'/)
-    def adIdPermission = allPermissions.find { it == "com.google.android.gms.permission.AD_ID" } ?: missingText
+    def adId = "com.google.android.gms.permission.AD_ID"
+    def adIdPermission = allPermissions.find { it == adId } ?: "$missingText[$adId]"
     def highRiskPermissionSet = [
             "android.permission.QUERY_ALL_PACKAGES",
             "android.permission.SYSTEM_ALERT_WINDOW",
@@ -2242,7 +2253,7 @@ def parseApkFileInfo(flavorName, apkFile) {
     def highRiskPermissions = allPermissions.findAll { highRiskPermissionSet.contains(it) }.collect { it.replace("android.permission.", "") }
     def debuggable = parseManifestBoolean(manifestOutput, "debuggable")
     def usesCleartextTraffic = parseManifestBoolean(manifestOutput, "usesCleartextTraffic")
-    def admobAppId = manifestMetaData["com.google.android.gms.ads.APPLICATION_ID"] ?: ""
+    def admobAppId = manifestMetaData["com.google.android.gms.ads.APPLICATION_ID"] ?: "$missingText"
     def facebookAppId = manifestMetaData["com.facebook.sdk.ApplicationId"] ?: ""
     def facebookToken = manifestMetaData["com.facebook.sdk.ClientToken"] ?: ""
     def adConfigFileName = generateAdConfigFileName(flavorName)
@@ -2284,13 +2295,13 @@ def parseApkFileInfo(flavorName, apkFile) {
     putInfo("调试开关", toEnabledStatus(debuggable))
     putInfo("明文传输", toEnabledStatus(usesCleartextTraffic))
 
-    putInfo("谷歌标识", admobAppId)
+    putInfo("谷歌广告", admobAppId)
     putInfo("脸书标识", facebookAppId)
     putInfo("脸书令牌", facebookToken)
 
     putInfo("广告配置", adConfigExistsName)
 
-    putInfo("广告标识", adIdPermission)
+    putInfo("广告权限", adIdPermission)
 
     def adPlatformRules = [
             [name: "Applovin", pattern: ["com.applovin.", "applovinfullscreenactivity", "mediationdebuggeractivity"]],
@@ -2484,7 +2495,8 @@ def analyzingBundlesInternal(flavorName, aabFile) {
                 "脸书标识",
                 "脸书令牌",
                 "广告配置",
-                "广告标识",
+                "广告权限",
+                "谷歌广告",
         ] as Set
         def highlightKeySet = [
                 "高危权限",
@@ -2511,7 +2523,7 @@ def analyzingBundlesInternal(flavorName, aabFile) {
                 if (highlightEnabledKeySet.contains(item.key) && enabledText.equals(item.value)) {
                     outputValue = redText(item.value)
                 }
-                if ("谷歌标识".equals(item.key) && testAdmobAppId.equals(apkInfo.admobAppId)) {
+                if ("谷歌广告".equals(item.key) && testAdmobAppId.equals(apkInfo.admobAppId)) {
                     outputValue = redText("[测试广告]" + item.value)
                 }
                 if (highlightKeySet.contains(item.key)) {
@@ -2524,7 +2536,7 @@ def analyzingBundlesInternal(flavorName, aabFile) {
         if (apkInfo?.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
             println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phaseCosts : " + apkInfo.phaseCost
         }
-        def outputName = "bundleinfo.txt"
+        def outputName = "bundle.txt"
         File outputFile = new File(aabFile.getParentFile(), outputName)
         outputFile.withWriter("UTF-8") { writer ->
             writer.write(separator)
@@ -2553,7 +2565,7 @@ def analyzingBundlesInternal(flavorName, aabFile) {
         e.printStackTrace()
     }
     def endTime = System.currentTimeMillis()
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] totalCosts : " + (endTime - startTime)
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] totalCosts : " + (endTime - startTime) + "ms"
 }
 
 def printEncryptFileFlavor() {
