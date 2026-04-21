@@ -481,7 +481,7 @@ def generateAdConfigFileName(flavorName) {
     def pkgnameMd5 = Utils.string2MD5(appId)
     def adConfigName = "mob" + pkgnameMd5.substring(0, 8) + getSuffix()
     println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] applicationId : " + appId
-    println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] createAdsName : " + redText(adConfigName)
+    println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] createAdsName : " + greenText(adConfigName)
     println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] createAdsName : app_mob_data.cfg"
     return adConfigName
 }
@@ -1040,11 +1040,26 @@ def checkBundleFiles(flavor, apkFilePath) {
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 afterEvaluate {
+    executeFinalTaskFlavor()
+}
+
+def executeFinalTaskFlavor() {
+    if (project.android.productFlavors.size() > 0) {// 如果有产品风味
+        project.android.productFlavors.each { flavor ->
+            executeFinalTask(flavor.name)
+        }
+    } else {
+        executeFinalTask(null)
+    }
+}
+
+def executeFinalTask(flavor) {
+    def methodName = { "executeFinalTask" }
     try {
         def executeTasks = getGradle().getStartParameter().getTaskRequests()[0]["args"]
         println ""
-        println greenText("${taskTag()}:${project.name}:executeTaskHook >>>>>>>>>>>>>>>")
-        println greenText("${taskTag()}:${project.name}:executeTaskHook startParameters : $executeTasks")
+        println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] >>>>>>>>>>>>>>>")
+        println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] startParameters : $executeTasks")
         def taskName = null
         def tag = null
         executeTasks.each {
@@ -1057,7 +1072,7 @@ afterEvaluate {
                 tag = "apk"
             }
         }
-        println greenText("${taskTag()}:${project.name}:executeTaskHook executeTaskName : $taskName")
+        println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] executeTaskName : $taskName")
         if (taskName != null) {
             def index = taskName.lastIndexOf(":")
             if (index > -1) {
@@ -1073,6 +1088,7 @@ afterEvaluate {
         }
     } catch (Exception e) {
     }
+    println ""
 }
 
 def openReleaseDir(String taskName, String tag) {
@@ -1825,8 +1841,8 @@ def parseAabFileInfo(flavorName, aabFile) {
         putInfo("签名校验", "AAB keytool timeout")
     }
     if (keytoolResult.exitValue != 0 && keytoolResult.finished) {
-        def errorDisplay = "keytool exitValue : ${keytoolResult.exitValue}"
-        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+        def errorDisplay = "keytool-Value : ${redText(keytoolResult.exitValue)}"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
     }
     if (keytoolResult.error != null && keytoolResult.error.trim().length() > 0) {
         String errorText = keytoolResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
@@ -2095,16 +2111,16 @@ def parseApkFileInfo(flavorName, apkFile) {
             putInfo("资源命令", "AAPT dump badging timeout")
         }
         if (badgingResult.exitValue != 0 && badgingResult.finished) {
-            def errorDisplay = "badging exitValue : ${badgingResult.exitValue}"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            def errorDisplay = "badging-Value : ${redText(badgingResult.exitValue)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         if (badgingResult.error != null && badgingResult.error.trim().length() > 0) {
             String errorText = badgingResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
-            def errorDisplay = "badging stderr : ${errorText}"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            def errorDisplay = "badgingStderr : ${redText(errorText)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         phaseEnd("aaptBadging", aaptBadgingStartAt)
 
@@ -2115,16 +2131,16 @@ def parseApkFileInfo(flavorName, apkFile) {
             putInfo("资源命令", "AAPT dump xmltree timeout")
         }
         if (manifestResult.exitValue != 0 && manifestResult.finished) {
-            def errorDisplay = "xmltree exitValue : ${manifestResult.exitValue}"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            def errorDisplay = "xmltree-Value : ${redText(manifestResult.exitValue)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         if (manifestResult.error != null && manifestResult.error.trim().length() > 0) {
             String errorText = manifestResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
-            def errorDisplay = "xmltree stderr : ${errorText}"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            def errorDisplay = "xmltreeStderr : ${redText(errorText)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         phaseEnd("aaptManifest", aaptManifestStartAt)
     }
@@ -2205,6 +2221,7 @@ def parseApkFileInfo(flavorName, apkFile) {
     def targetSdk = parseAaptValue(aaptOutput, /targetSdkVersion:'([^']*)'/)
     def fileSize = formatFileSize(apkFile.length())
     def allPermissions = parseAaptValues(aaptOutput, /uses-permission(?:-[^:]*)?:\s+name='([^']+)'/)
+    def adIdPermission = allPermissions.find { it == "com.google.android.gms.permission.AD_ID" } ?: missingText
     def highRiskPermissionSet = [
             "android.permission.QUERY_ALL_PACKAGES",
             "android.permission.SYSTEM_ALERT_WINDOW",
@@ -2273,6 +2290,8 @@ def parseApkFileInfo(flavorName, apkFile) {
 
     putInfo("广告配置", adConfigExistsName)
 
+    putInfo("广告标识", adIdPermission)
+
     def adPlatformRules = [
             [name: "Applovin", pattern: ["com.applovin.", "applovinfullscreenactivity", "mediationdebuggeractivity"]],
             [name: "BidMachine", pattern: ["io.bidmachine."]],
@@ -2331,16 +2350,16 @@ def parseApkFileInfo(flavorName, apkFile) {
             putInfo("签名校验", "APK apksigner timeout")
         }
         if (signerResult.exitValue != 0 && signerResult.finished) {
-            def errorDisplay = "apksigner exitValue : ${signerResult.exitValue}"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            def errorDisplay = "apksignerExit : ${redText(signerResult.exitValue)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         if (signerResult.error != null && signerResult.error.trim().length() > 0) {
             String errorText = signerResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
             if (errorText.length() > 200) {
                 errorText = errorText.substring(0, 200) + "..."
             }
-            def errorDisplay = "apksignStderr : $errorText"
-            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] ${redText(errorDisplay)}"
+            def errorDisplay = "apksignStderr : ${redText(errorText)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         phaseEnd("apksignerVerify", apksignerStartAt)
         if ((signerOutput =~ /Verified using v1 scheme.*:\s*true/).find()) {
@@ -2441,10 +2460,10 @@ def analyzingBundlesInternal(flavorName, aabFile) {
         "analyzingBundles"
     }
     def startTime = System.currentTimeMillis()
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] ============>"
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] " + greenText("============>")
     println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] aabBundleFile : [" + (aabFile == null ? "null" : aabFile.getAbsolutePath()) + "]"
     if (aabFile == null || !aabFile.exists()) {
-        def errorDisplay = "aabFile is not exist"
+        def errorDisplay = redText("aabFile is not exist")
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] $errorDisplay"
         return
     }
@@ -2465,6 +2484,9 @@ def analyzingBundlesInternal(flavorName, aabFile) {
                 "脸书标识",
                 "脸书令牌",
                 "广告配置",
+        ] as Set
+        def highlightKeySet = [
+                "高危权限",
         ] as Set
         def highlightEnabledKeySet = [
                 "调试开关",
@@ -2490,6 +2512,9 @@ def analyzingBundlesInternal(flavorName, aabFile) {
                 }
                 if ("谷歌标识".equals(item.key) && testAdmobAppId.equals(apkInfo.admobAppId)) {
                     outputValue = redText("[测试广告]" + item.value)
+                }
+                if (highlightKeySet.contains(item.key)) {
+                    outputValue = redText(item.value)
                 }
                 println "    " + item.key + " | " + outputValue
             }

@@ -1,4 +1,4 @@
-println "====================== apply rename_resource.gradle========================="
+println "======================apply rename_resource.gradle========================="
 /*
 ext.real_replace = false
 ext.file_pattern = ["act_mist_": "act_halo_", "frg_mist_": "frg_halo_", "bg_mist_": "bg_halo_", "ic_mist_": "ic_halo_", "dialog_mist_": "dialog_halo_", "mist_":"halo_"]
