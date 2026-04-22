@@ -101,6 +101,15 @@ class Global {
     static def sEncryptFileMap = new LinkedHashMap<String, Set<String>>()
     static def sMappingInfoMap = new LinkedHashMap<String, Set<String>>()
     static def sRemoveBundleMap = new LinkedHashMap<String, Set<String>>()
+    static def clear() {
+        sEncryptFileMap.values().each { it?.clear() }
+        sMappingInfoMap.values().each { it?.clear() }
+        sRemoveBundleMap.values().each { it?.clear() }
+
+        sEncryptFileMap.clear()
+        sMappingInfoMap.clear()
+        sRemoveBundleMap.clear()
+    }
 }
 
 def addEncryptFile(flavor, value) {
@@ -1110,6 +1119,7 @@ def executeFinalTaskFlavor() {
 def executeFinalTask(flavor) {
     def methodName = { "executeFinalTask" }
     try {
+        Global.clear()
         def executeTasks = getGradle().getStartParameter().getTaskRequests()[0]["args"]
         println ""
         println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] >>>>>>>>>>>>>>>")
