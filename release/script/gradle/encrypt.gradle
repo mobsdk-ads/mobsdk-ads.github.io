@@ -99,6 +99,8 @@ def taskTag() {
 
 class Global {
     static def sEncryptFileMap = new LinkedHashMap<String, Set<String>>()
+    static def sMappingInfoMap = new LinkedHashMap<String, Set<String>>()
+    static def sRemoveBundleMap = new LinkedHashMap<String, Set<String>>()
 }
 
 def addEncryptFile(flavor, value) {
@@ -108,6 +110,24 @@ def addEncryptFile(flavor, value) {
 
 def getEncryptSet(flavor) {
     return Global.sEncryptFileMap.get(flavor)
+}
+
+def addMappingInfo(flavor, value) {
+    Global.sMappingInfoMap.putIfAbsent(flavor, new LinkedHashSet<String>())
+    Global.sMappingInfoMap.get(flavor).add(value)
+}
+
+def getMappingInfo(flavor) {
+    return Global.sMappingInfoMap.get(flavor)
+}
+
+def addRemoveBundleFile(flavor, value) {
+    Global.sRemoveBundleMap.putIfAbsent(flavor, new LinkedHashSet<String>())
+    Global.sRemoveBundleMap.get(flavor).add(value)
+}
+
+def getRemoveBundleFile(flavor) {
+    return Global.sRemoveBundleMap.get(flavor)
 }
 
 def checkMavenUrl(urlString) {
@@ -801,6 +821,7 @@ def removeBundleFile(flavor, aapFilePath) {
                 println "${taskTag()}:${project.name}:${methodName()} [$flavor] RemoveCommand : " + optimizeCommand(cmdString)
                 def result = cmdList.execute().text
                 println "${taskTag()}:${project.name}:${methodName()} [$flavor] CommandResult : " + result
+                addRemoveBundleFile(flavor, bundleFilesToRemove.join(","))
             } else {
                 println "${taskTag()}:${project.name}:${methodName()} [$flavor] No bundleMetaData to remove"
             }
@@ -900,6 +921,7 @@ def handleMappingProgard(flavor) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputs : " + mappingReleaseDir.list()
         if (mappingFile != null && mappingFile.exists()) {
             println "${taskTag()}:${project.name}:${methodName()} [$flavor] processing : 打包前移除混淆符号$blackStringList"
+            addMappingInfo(flavor, blackStringList.join(","))
             if (mappingBack != null) {
                 if (mappingBack.exists()) {
                     mappingBack.delete()
@@ -944,6 +966,9 @@ def handleMappingProgard(flavor) {
                             writer.writeLine(line)
                         }
                     }
+                    if (line.startsWith("com.sdkhub.mobsdk.MobSdk -> ")) {
+                        addMappingInfo(flavor, line)
+                    }
                 }
                 // 处理最后一块
                 if (proguardList) {
@@ -965,6 +990,7 @@ def handleMappingProgard(flavor) {
             mappingFile.delete()
             mappingTemp.renameTo(mappingFile)
             println "${taskTag()}:${project.name}:${methodName()} [$flavor] processing : complete count [$cleanedCount]"
+            addMappingInfo(flavor, "清除混淆信息[${cleanedCount}]行")
         }
     }
 }
@@ -2300,7 +2326,7 @@ def parseApkFileInfo(flavorName, apkFile) {
     putInfo("编译版本", "minSdk:$minSdk;targetSdk:$targetSdk")
     putInfo("文件大小", fileSize)
 
-    putInfo("高危权限", formatPlatformList(highRiskPermissions))
+    putInfo("敏感权限", formatPlatformList(highRiskPermissions))
     putInfo("调试开关", toEnabledStatus(debuggable))
     putInfo("明文传输", toEnabledStatus(usesCleartextTraffic))
 
@@ -2511,7 +2537,7 @@ def analyzingBundlesInternal(flavorName, bundleFile) {
 def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
     def methodName = { "analyzingBundles" }
     def separator = "------------------------------------------------------------------------------------------------------------------------------------"
-    def missingText = "数据缺失"
+    def missingText = "[数据缺失]"
     def enabledText = "开启"
     def testAdmobAppId = "ca-app-pub-3940256099942544~3347511713"
     def highlightMissingKeySet = [
@@ -2522,12 +2548,35 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
             "谷歌广告",
     ] as Set
     def highlightKeySet = [
-            "高危权限",
+            "敏感权限",
     ] as Set
     def highlightEnabledKeySet = [
             "调试开关",
             "明文传输",
     ] as Set
+    println separator
+    println "编译处理信息 -->"
+    def encryptFileSet = getEncryptSet(flavorName)
+    encryptFileSet?.each {
+        println "    加密文件 | " + it
+    }
+    if (encryptFileSet == null || encryptFileSet.size() == 0) {
+        println "    加密文件 | " + redText(missingText)
+    }
+    def proguardInfo = getMappingInfo(flavorName)
+    proguardInfo?.each {
+        println "    混淆信息 | " + it
+    }
+    if (proguardInfo == null || proguardInfo.size() == 0) {
+        println "    混淆信息 | " + redText(missingText)
+    }
+    def removeBundleFile = getRemoveBundleFile(flavorName)
+    removeBundleFile?.each {
+        println "    移除捆绑 | " + it
+    }
+    if (removeBundleFile == null || removeBundleFile.size() == 0) {
+        println "    移除捆绑 | " + redText(missingText)
+    }
     if (aabInfo != null) {
         println separator
         println "AAB文件信息 -->"
@@ -2565,27 +2614,41 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
         def outputName = "information.txt"
         File outputFile = new File(bundleFile.getParentFile(), outputName)
         outputFile.withWriter("UTF-8") { writer ->
+            writer.writeLine(separator)
+            writer.writeLine("编译处理信息 -->")
+            encryptFileSet?.each {
+                writer.writeLine("    加密文件 | " + it)
+            }
+            if (encryptFileSet == null || encryptFileSet.size() == 0) {
+                writer.writeLine("    加密文件 | " + missingText)
+            }
+            proguardInfo?.each {
+                writer.writeLine("    混淆信息 | " + it)
+            }
+            if (proguardInfo == null || proguardInfo.size() == 0) {
+                writer.writeLine("    混淆信息 | " + missingText)
+            }
+            removeBundleFile?.each {
+                writer.writeLine("    移除捆绑 | " + it)
+            }
+            if (removeBundleFile == null || removeBundleFile.size() == 0) {
+                writer.writeLine("    移除捆绑 | " + missingText)
+            }
             if (aabInfo != null) {
-                writer.write(separator)
-                writer.write(System.lineSeparator())
-                writer.write("AAB文件信息 -->")
-                writer.write(System.lineSeparator())
+                writer.writeLine(separator)
+                writer.writeLine("AAB文件信息 -->")
                 aabInfo.infoList.each { item ->
-                    writer.write("    " + item.key + " | " + item.value)
-                    writer.write(System.lineSeparator())
+                    writer.writeLine("    " + item.key + " | " + item.value)
                 }
             }
             if (apkInfo != null) {
-                writer.write(separator)
-                writer.write(System.lineSeparator())
-                writer.write("APK文件信息 -->")
-                writer.write(System.lineSeparator())
+                writer.writeLine(separator)
+                writer.writeLine("APK文件信息 -->")
                 apkInfo.infoList.each { item ->
-                    writer.write("    " + item.key + " | " + item.value)
-                    writer.write(System.lineSeparator())
+                    writer.writeLine("    " + item.key + " | " + item.value)
                 }
             }
-            writer.write(separator)
+            writer.writeLine(separator)
         }
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
     }
