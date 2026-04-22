@@ -101,14 +101,12 @@ class Global {
     static def sEncryptFileMap = new LinkedHashMap<String, Set<String>>()
     static def sMappingInfoMap = new LinkedHashMap<String, Set<String>>()
     static def sRemoveBundleMap = new LinkedHashMap<String, Set<String>>()
-    static def clear() {
-        sEncryptFileMap.values().each { it?.clear() }
-        sMappingInfoMap.values().each { it?.clear() }
-        sRemoveBundleMap.values().each { it?.clear() }
 
-        sEncryptFileMap.clear()
-        sMappingInfoMap.clear()
-        sRemoveBundleMap.clear()
+    static def clear() {
+        [sEncryptFileMap, sMappingInfoMap, sRemoveBundleMap].each { map ->
+            map?.values()?.each { it?.clear() }
+            map?.clear()
+        }
     }
 }
 
