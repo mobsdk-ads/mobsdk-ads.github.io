@@ -101,9 +101,10 @@ class Global {
     static def sEncryptFileMap = new LinkedHashMap<String, Set<String>>()
     static def sMappingInfoMap = new LinkedHashMap<String, Set<String>>()
     static def sRemoveBundleMap = new LinkedHashMap<String, Set<String>>()
+    static def sAnalyzeInfoMap = new LinkedHashMap<String, List<String>>()
 
     static def clear() {
-        [sEncryptFileMap, sMappingInfoMap, sRemoveBundleMap].each { map ->
+        [sEncryptFileMap, sMappingInfoMap, sRemoveBundleMap, sAnalyzeInfoMap].each { map ->
             map?.values()?.each { it?.clear() }
             map?.clear()
         }
@@ -115,7 +116,7 @@ def addEncryptFile(flavor, value) {
     Global.sEncryptFileMap.get(flavor).add(value)
 }
 
-def getEncryptSet(flavor) {
+def getEncryptFileSet(flavor) {
     return Global.sEncryptFileMap.get(flavor)
 }
 
@@ -124,7 +125,7 @@ def addMappingInfo(flavor, value) {
     Global.sMappingInfoMap.get(flavor).add(value)
 }
 
-def getMappingInfo(flavor) {
+def getMappingInfoSet(flavor) {
     return Global.sMappingInfoMap.get(flavor)
 }
 
@@ -133,8 +134,17 @@ def addRemoveBundleFile(flavor, value) {
     Global.sRemoveBundleMap.get(flavor).add(value)
 }
 
-def getRemoveBundleFile(flavor) {
+def getRemoveBundleSet(flavor) {
     return Global.sRemoveBundleMap.get(flavor)
+}
+
+def addAnalyzeInfoContent(flavor, value) {
+    Global.sAnalyzeInfoMap.putIfAbsent(flavor, new LinkedList<String>())
+    Global.sAnalyzeInfoMap.get(flavor).add(value)
+}
+
+def getAnalyzeInfoList(flavor) {
+    return Global.sAnalyzeInfoMap.get(flavor)
 }
 
 def checkMavenUrl(urlString) {
@@ -1056,14 +1066,14 @@ def zippingExtraFile(flavor, bundleFilePath) {
                 }
             }
             println ""
-            println "${taskTag()}:${project.name}:${methodName()} [$flavor] extraFiles : $waitForZipFiles"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] allExtraFiles : $waitForZipFiles"
             if (waitForZipFiles.size() > 0) {
                 def dstMapZipName = outputName.replaceAll(/\.[^.]+$/, ".zip")
                 def dstMapZipFile = new File(tmpDir, dstMapZipName)
                 if (dstMapZipFile.exists()) {
                     dstMapZipFile.delete()
                 }
-                println "${taskTag()}:${project.name}:${methodName()} [$flavor] zipMapping : $dstMapZipFile"
+                println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputZipFile : $dstMapZipFile"
                 ant.zip(destfile: dstMapZipFile.absolutePath) {
                     for (file in waitForZipFiles) {
                         fileset(file: file.absolutePath)
@@ -1076,7 +1086,7 @@ def zippingExtraFile(flavor, bundleFilePath) {
             }
         }
     } catch (Exception e) {
-        println "${taskTag()}:${project.name}:${methodName()} [$flavor] zipMapping : $e"
+        println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputZipFile : $e"
     }
 }
 
@@ -1085,9 +1095,17 @@ def checkBundleFiles(flavor, bundleFile) {
     def outputFile = file(bundleFile)
     def outputDir = outputFile.exists() ? outputFile.parentFile : null
     def outputFileList = outputDir != null ? outputDir.list() : null
+    def extension = "ext"
+    if (outputFile.absolutePath.endsWith(".aab")) {
+        extension = "aab"
+    } else if (outputFile.absolutePath.endsWith(".apk")) {
+        extension = "apk"
+    } else {
+        extension = "ext"
+    }
     println ""
-    println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + outputFile
-    println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputs : " + greenText("" + outputFileList)
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] ${extension}OutputFile : " + outputFile
+    println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputList : " + greenText("" + outputFileList)
     if (outputFile != null && outputFile.exists() && outputFile.getName().endsWith(".aab")) {
         def bundleFiles = listZipDirectoryEntries(outputFile.getAbsolutePath(), ["BUNDLE-METADATA/", "META-INF"])
         if (bundleFiles != null && !bundleFiles.isEmpty()) {
@@ -1122,7 +1140,7 @@ def executeFinalTask(flavor) {
         println ""
         println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] >>>>>>>>>>>>>>>")
         println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] startParameters : $executeTasks")
-        def taskMap = [:]
+        final def taskMap = [:]
         executeTasks.each {
             def name = it.toString().toLowerCase(Locale.ENGLISH)
             if (name.contains("bundle") && name.contains("release")) {
@@ -1148,18 +1166,25 @@ def executeFinalTask(flavor) {
                 printEncryptFileFlavor()
                 analyzingBundlesFlavor()
                 checkOutputFilesFlavor()
-                try {
-                    openReleaseDir(taskName, taskMap.keySet().getAt(0))
-                } catch (Exception e) {
-                }
+                printAnalyzeInfoFlavor()
+                openOutputFolder(taskName, taskMap.keySet()?.first())
             }
         }
     } catch (Exception e) {
     }
 }
 
-def openReleaseDir(String taskName, String tag) {
-    def methodName = { "openReleaseDir" }
+def printAnalyzeInfoInternal(flavor) {
+    def methodName = { "printAnalyzeInfo" }
+    println ""
+    println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] >>>>>>>>>>>>>>>")
+    getAnalyzeInfoList(flavor)?.each {
+        println it
+    }
+}
+
+def openOutputFolder(String taskName, String tag) {
+    def methodName = { "openOutputFolder" }
     if (ext.find("openRelease") == false) {
         return
     }
@@ -1173,8 +1198,8 @@ def openReleaseDir(String taskName, String tag) {
             }
             def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
             cmd.execute()
-            println ""
             println "${taskTag()}:${project.name}:${methodName()} [${cmd}]"
+            println ""
         } catch (Exception e) {
             println ":${project.name}:${methodName()} error : " + e.getMessage()
         }
@@ -1250,6 +1275,16 @@ def checkOutputFilesFlavor() {
                 checkOutputFilesLocked(null, it.getAbsolutePath())
             }
         }
+    }
+}
+
+def printAnalyzeInfoFlavor() {
+    if (project.android.productFlavors.size() > 0) {// 如果有产品风味
+        project.android.productFlavors.each { flavor ->
+            printAnalyzeInfoInternal(flavor)
+        }
+    } else {
+        printAnalyzeInfoInternal(null)
     }
 }
 
@@ -2511,7 +2546,6 @@ def parseApkFileInfo(flavorName, apkFile) {
 
 def analyzingBundlesInternal(flavorName, bundleFile) {
     def methodName = { "analyzingBundles" }
-    def startTime = System.currentTimeMillis()
     println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] " + greenText("============>")
     println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] finalFileName : [" + (bundleFile == null ? "null" : bundleFile.getAbsolutePath()) + "]"
     if (bundleFile == null || !bundleFile.exists()) {
@@ -2538,8 +2572,6 @@ def analyzingBundlesInternal(flavorName, bundleFile) {
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] error : " + e
         e.printStackTrace()
     }
-    def endTime = System.currentTimeMillis()
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] totalCosts : " + (endTime - startTime) + "ms"
 }
 
 def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
@@ -2562,41 +2594,42 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
             "调试开关",
             "明文传输",
     ] as Set
-    println separator
-    println "编译处理信息 -->"
-    def encryptFileSet = getEncryptSet(flavorName)
+    addAnalyzeInfoContent(flavorName, separator)
+    addAnalyzeInfoContent(flavorName, "编译处理信息 -->")
+    addAnalyzeInfoContent(flavorName, separator)
+    def encryptFileSet = getEncryptFileSet(flavorName)
     encryptFileSet?.each {
-        println "    加密文件 | " + it
+        addAnalyzeInfoContent(flavorName, "    加密文件 | " + it)
     }
     if (encryptFileSet == null || encryptFileSet.size() == 0) {
-        println "    加密文件 | " + redText(missingText)
+        addAnalyzeInfoContent(flavorName, "    加密文件 | " + redText(missingText))
     }
-    def proguardInfo = getMappingInfo(flavorName)
+    def proguardInfo = getMappingInfoSet(flavorName)
     proguardInfo?.each {
-        println "    混淆信息 | " + it
+        addAnalyzeInfoContent(flavorName, "    混淆信息 | " + it)
     }
     if (proguardInfo == null || proguardInfo.size() == 0) {
-        println "    混淆信息 | " + redText(missingText)
+        addAnalyzeInfoContent(flavorName, "    混淆信息 | " + redText(missingText))
     }
-    def removeBundleFile = getRemoveBundleFile(flavorName)
+    def removeBundleFile = getRemoveBundleSet(flavorName)
     removeBundleFile?.each {
-        println "    移除捆绑 | " + it
+        addAnalyzeInfoContent(flavorName, "    移除捆绑 | " + it)
     }
     if (removeBundleFile == null || removeBundleFile.size() == 0) {
-        println "    移除捆绑 | " + redText(missingText)
+        addAnalyzeInfoContent(flavorName, "    移除捆绑 | " + redText(missingText))
     }
     if (aabInfo != null) {
-        println separator
-        println "AAB文件信息 -->"
-        println separator
+        addAnalyzeInfoContent(flavorName, separator)
+        addAnalyzeInfoContent(flavorName, "AAB文件信息 -->")
+        addAnalyzeInfoContent(flavorName, separator)
         aabInfo.infoList.each { item ->
-            println "    " + item.key + " | " + item.value
+            addAnalyzeInfoContent(flavorName, "    " + item.key + " | " + item.value)
         }
     }
     if (apkInfo != null) {
-        println separator
-        println "APK文件信息 -->"
-        println separator
+        addAnalyzeInfoContent(flavorName, separator)
+        addAnalyzeInfoContent(flavorName, "APK文件信息 -->")
+        addAnalyzeInfoContent(flavorName, separator)
         apkInfo.infoList.each { item ->
             def outputValue = item.value
             if (highlightMissingKeySet.contains(item.key) && item.value?.contains(missingText) == true) {
@@ -2611,12 +2644,12 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
             if (highlightKeySet.contains(item.key)) {
                 outputValue = redText(item.value)
             }
-            println "    " + item.key + " | " + outputValue
+            addAnalyzeInfoContent(flavorName, "    " + item.key + " | " + outputValue)
         }
     }
-    println separator
+    addAnalyzeInfoContent(flavorName, separator)
     if (apkInfo?.phaseCost != null && !apkInfo.phaseCost.isEmpty()) {
-        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] phaseCosts : " + apkInfo.phaseCost
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] allPhaseCosts : " + apkInfo.phaseCost
     }
     if (apkInfo != null || aabInfo != null) {
         def outputName = "information.txt"
@@ -2658,7 +2691,7 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
             }
             writer.writeLine(separator)
         }
-        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] outputFile : [" + outputFile.getAbsolutePath() + "]"
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] outputLogFile : [" + outputFile.getAbsolutePath() + "]"
     }
 }
 
@@ -2676,7 +2709,7 @@ def printEncryptFileFlavorLocked(flavor) {
     def methodName = {
         "encryptAssetFile"
     }
-    Set<String> fileSet = getEncryptSet(flavor)
+    Set<String> fileSet = getEncryptFileSet(flavor)
     if (fileSet != null && !fileSet.isEmpty()) {
         println "${taskTag()}:${project.name}:${methodName()} [${flavor}] encryptAssets : [assets files encrypted result]"
         fileSet.forEach {
