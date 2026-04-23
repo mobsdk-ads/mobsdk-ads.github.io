@@ -1198,7 +1198,7 @@ def openOutputFolder(String taskName, String tag) {
             }
             def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
             cmd.execute()
-            println "${taskTag()}:${project.name}:${methodName()} [${cmd}]"
+            println "${taskTag()}:${project.name}:${methodName()} outputDirPath : $outputPath"
             println ""
         } catch (Exception e) {
             println ":${project.name}:${methodName()} error : " + e.getMessage()
