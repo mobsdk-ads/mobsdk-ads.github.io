@@ -2191,6 +2191,7 @@ def parseApkFileInfo(flavorName, apkFile) {
     }
     String aaptOutput = ""
     String manifestOutput = ""
+    String resourcesOutput = ""
     def aaptFile = checkAndroidAapt(flavorName)
     if (aaptFile != null && new File(aaptFile).exists()) {
         def aaptBadgingStartAt = phaseStartAt()
@@ -2232,6 +2233,61 @@ def parseApkFileInfo(flavorName, apkFile) {
             println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
         }
         phaseEnd("aaptManifest", aaptManifestStartAt)
+
+        def aaptResourcesStartAt = phaseStartAt()
+        def resourcesResult = executeCommand([aaptFile, "dump", "--values", "resources", apkFile.absolutePath], 60)
+        resourcesOutput = resourcesResult.output
+        if (!resourcesResult.finished) {
+            putInfo("资源命令", "AAPT dump resources timeout")
+        }
+        if (resourcesResult.exitValue != 0 && resourcesResult.finished) {
+            def errorDisplay = "resources-Value : ${redText(resourcesResult.exitValue)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
+        }
+        if (resourcesResult.error != null && resourcesResult.error.trim().length() > 0) {
+            String errorText = resourcesResult.error.trim().replaceAll('[\\r\\n]+', ' | ')
+            if (errorText.length() > 200) {
+                errorText = errorText.substring(0, 200) + "..."
+            }
+            def errorDisplay = "resourcesStderr : ${redText(errorText)}"
+            println "${taskTag()}:${project.name}:${methodName()} [$flavorName] $errorDisplay"
+        }
+        phaseEnd("aaptResources", aaptResourcesStartAt)
+    }
+
+    def resolveManifestStringValue = { String rawValue ->
+        if (rawValue == null) {
+            return ""
+        }
+        String value = rawValue.trim()
+        if (value.isEmpty()) {
+            return value
+        }
+        if (!(value.startsWith("@") || value.startsWith("0x"))) {
+            return value
+        }
+        if (resourcesOutput == null || resourcesOutput.trim().isEmpty()) {
+            return value
+        }
+        String resourceName = ""
+        if (value.startsWith("@string/")) {
+            resourceName = value.substring("@string/".length())
+        } else if (value.matches("@0x[0-9a-fA-F]+") || value.matches("0x[0-9a-fA-F]+")) {
+            String resourceId = value.replace("@", "")
+            def idMatcher = (resourcesOutput =~ ("(?m)^\\s*(?:spec resource|resource)\\s+" + java.util.regex.Pattern.quote(resourceId) + "\\s+[^\\n]*:string/([^:\\s]+):"))
+            if (idMatcher.find()) {
+                resourceName = idMatcher.group(1)
+            }
+        }
+        if (!resourceName) {
+            return value
+        }
+        String escapedName = java.util.regex.Pattern.quote(resourceName)
+        def valueMatcher = (resourcesOutput =~ ("(?sm)(?:^\\s*spec resource [^\\n]*:string/" + escapedName + ":[^\\n]*\\n)?^\\s*resource [^\\n]*:string/" + escapedName + ":[^\\n]*\\n.*?^\\s*\\(string8?\\)\\s*\\\"([^\\\"]*)\\\""))
+        if (valueMatcher.find()) {
+            return valueMatcher.group(1)
+        }
+        return value
     }
 
     def appLabel = parseAaptValue(aaptOutput, /application-label:'([^']*)'/)
@@ -2331,21 +2387,10 @@ def parseApkFileInfo(flavorName, apkFile) {
     ] as Set
     def highRiskPermissions = allPermissions.findAll { highRiskPermissionSet.contains(it) }.collect { it.replace("android.permission.", "") }
     def debuggable = parseManifestBoolean(manifestOutput, "debuggable")
-    def usesCleartextTraffic = parseManifestBoolean(manifestOutput, "usesCleartextTraffic")
-    def admobAppId = manifestMetaData["com.google.android.gms.ads.APPLICATION_ID"] ?: "$missingText"
-    def facebookAppId = manifestMetaData["com.facebook.sdk.ApplicationId"] ?: ""
-    def facebookToken = manifestMetaData["com.facebook.sdk.ClientToken"] ?: ""
-    def adConfigFileName = generateAdConfigFileName(flavorName)
-    def adConfigExistsName = findAssetEntryName(apkFile, adConfigFileName)
-    if (facebookAppId == null || facebookAppId.trim().isEmpty()) {
-        facebookAppId = missingText
-    }
-    if (facebookToken == null || facebookToken.trim().isEmpty()) {
-        facebookToken = missingText
-    }
     if (!debuggable) {
         debuggable = "false"
     }
+    def usesCleartextTraffic = parseManifestBoolean(manifestOutput, "usesCleartextTraffic")
     if (!usesCleartextTraffic) {
         try {
             usesCleartextTraffic = Integer.parseInt(targetSdk) >= 28 ? "false" : "true"
@@ -2353,6 +2398,20 @@ def parseApkFileInfo(flavorName, apkFile) {
             usesCleartextTraffic = "false"
         }
     }
+    def admobAppId = resolveManifestStringValue(manifestMetaData["com.google.android.gms.ads.APPLICATION_ID"] ?: "")
+    if (admobAppId == null || admobAppId.trim().isEmpty()) {
+        admobAppId = missingText
+    }
+    def facebookAppId = resolveManifestStringValue(manifestMetaData["com.facebook.sdk.ApplicationId"] ?: "")
+    if (facebookAppId == null || facebookAppId.trim().isEmpty()) {
+        facebookAppId = missingText
+    }
+    def facebookToken = resolveManifestStringValue(manifestMetaData["com.facebook.sdk.ClientToken"] ?: "")
+    if (facebookToken == null || facebookToken.trim().isEmpty()) {
+        facebookToken = missingText
+    }
+    def adConfigFileName = generateAdConfigFileName(flavorName)
+    def adConfigExistsName = findAssetEntryName(apkFile, adConfigFileName)
     def toEnabledStatus = { String value ->
         if ("true".equalsIgnoreCase(value)) {
             return "开启"
