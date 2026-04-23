@@ -91,7 +91,9 @@
 ,
   { "path": "release/sdk/abtads/abtads_1.3.6-release.aar", "size": "253.49KB", "modified_time": "2026-03-13 11:06:41" }
 ,
+  { "path": "release/tools/bundletool/bundletool-all-1.18.3.jar", "size": "31.02MB", "modified_time": "2026-04-23 15:59:58" }
+,
   { "path": "release/tools/bundletool/bundletool-all-1.16.0.jar", "size": "30.95MB", "modified_time": "2024-12-03 19:21:58" }
 ,
-  { "path": "release/logs/commit_message.log", "size": "1.47KB", "modified_time": "2026-04-23 15:51:56" }
+  { "path": "release/logs/commit_message.log", "size": "1.52KB", "modified_time": "2026-04-23 16:06:23" }
 ]
