@@ -2289,6 +2289,12 @@ def parseApkFileInfo(flavorName, apkFile) {
         }
         return value
     }
+    def resolveStringResourceValue = { String resourceName ->
+        if (resourceName == null || resourceName.trim().isEmpty()) {
+            return ""
+        }
+        return resolveManifestStringValue("@string/" + resourceName)
+    }
 
     def appLabel = parseAaptValue(aaptOutput, /application-label:'([^']*)'/)
     if (!appLabel) {
@@ -2410,6 +2416,34 @@ def parseApkFileInfo(flavorName, apkFile) {
     if (facebookToken == null || facebookToken.trim().isEmpty()) {
         facebookToken = missingText
     }
+    def firebaseGoogleAppId = resolveStringResourceValue("google_app_id")
+    if (firebaseGoogleAppId == null || firebaseGoogleAppId.trim().isEmpty()) {
+        firebaseGoogleAppId = missingText
+    }
+    def firebaseSenderId = resolveStringResourceValue("gcm_defaultSenderId")
+    if (firebaseSenderId == null || firebaseSenderId.trim().isEmpty()) {
+        firebaseSenderId = missingText
+    }
+    def firebaseWebClientId = resolveStringResourceValue("default_web_client_id")
+    if (firebaseWebClientId == null || firebaseWebClientId.trim().isEmpty()) {
+        firebaseWebClientId = missingText
+    }
+    def firebaseDatabaseUrl = resolveStringResourceValue("firebase_database_url")
+    if (firebaseDatabaseUrl == null || firebaseDatabaseUrl.trim().isEmpty()) {
+        firebaseDatabaseUrl = missingText
+    }
+    def firebaseApiKey = resolveStringResourceValue("google_api_key")
+    if (firebaseApiKey == null || firebaseApiKey.trim().isEmpty()) {
+        firebaseApiKey = missingText
+    }
+    def firebaseCrashReportingApiKey = resolveStringResourceValue("google_crash_reporting_api_key")
+    if (firebaseCrashReportingApiKey == null || firebaseCrashReportingApiKey.trim().isEmpty()) {
+        firebaseCrashReportingApiKey = missingText
+    }
+    def firebaseProjectId = resolveStringResourceValue("project_id")
+    if (firebaseProjectId == null || firebaseProjectId.trim().isEmpty()) {
+        firebaseProjectId = missingText
+    }
     def adConfigFileName = generateAdConfigFileName(flavorName)
     def adConfigExistsName = findAssetEntryName(apkFile, adConfigFileName)
     def toEnabledStatus = { String value ->
@@ -2440,6 +2474,7 @@ def parseApkFileInfo(flavorName, apkFile) {
     putInfo("广告配置", adConfigExistsName)
 
     putInfo("广告权限", adIdPermission)
+    putInfo("谷歌统计", "AppId : $firebaseGoogleAppId;CrashApiKey : $firebaseCrashReportingApiKey")
 
     def adPlatformRules = [
             [name: "Applovin", pattern: ["com.applovin.", "applovinfullscreenactivity", "mediationdebuggeractivity"]],
@@ -2596,6 +2631,13 @@ def parseApkFileInfo(flavorName, apkFile) {
             targetSdk     : targetSdk,
             fileSize      : fileSize,
             admobAppId    : admobAppId,
+            firebaseGoogleAppId: firebaseGoogleAppId,
+            firebaseSenderId: firebaseSenderId,
+            firebaseWebClientId: firebaseWebClientId,
+            firebaseDatabaseUrl: firebaseDatabaseUrl,
+            firebaseApiKey: firebaseApiKey,
+            firebaseCrashReportingApiKey: firebaseCrashReportingApiKey,
+            firebaseProjectId: firebaseProjectId,
             facebookAppId : facebookAppId,
             facebookToken : facebookToken,
             adConfigFile  : adConfigExistsName,
