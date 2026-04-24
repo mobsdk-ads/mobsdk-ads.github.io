@@ -2474,7 +2474,8 @@ def parseApkFileInfo(flavorName, apkFile) {
     putInfo("广告配置", adConfigExistsName)
 
     putInfo("广告权限", adIdPermission)
-    putInfo("谷歌统计", "AppId : $firebaseGoogleAppId;CrashApiKey : $firebaseCrashReportingApiKey")
+    putInfo("谷歌统计", "[AppId]$firebaseGoogleAppId")
+    putInfo("谷歌统计", "[CrashApiKey]$firebaseCrashReportingApiKey")
 
     def adPlatformRules = [
             [name: "Applovin", pattern: ["com.applovin.", "applovinfullscreenactivity", "mediationdebuggeractivity"]],
