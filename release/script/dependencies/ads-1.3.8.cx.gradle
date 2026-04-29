@@ -120,8 +120,8 @@ dependencies {
         }
         if (isContainPlatform(getUserSelectNetwork(), CLOUDX)) {
             // cloudx
-            implementation ('com.facebook.android:adapter-meta:3.2.0') {
-                exclude group: 'com.mbridge.msdk.oversea'
+            implementation ('io.cloudx:adapter-meta:3.2.0') {
+                exclude group: 'com.facebook.android'
             }
         }
     }
