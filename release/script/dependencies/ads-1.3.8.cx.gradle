@@ -16,6 +16,7 @@ def MYTARGET = "mytarget"
 def BIDMACHINE = "bidmachine"
 def SMAATO = "smaato"
 def VERVE = "verve"
+def CLOUDX = "cloudx"
 
 def greenText(text) {
     try {
@@ -97,6 +98,11 @@ dependencies {
         implementation 'com.tradplusad:tradplus-crosspromotion:27.15.6.0.1'
     }
 
+    if (isContainPlatform(getUserSelectNetwork(), CLOUDX)) {
+        // cloudx
+        implementation 'io.cloudx:sdk:3.2.0'
+    }
+
     if (isContainPlatform(getUserSelectNetwork(), FACEBOOK)) {
         // facebook
         implementation 'com.facebook.android:audience-network-sdk:6.21.0'
@@ -111,6 +117,10 @@ dependencies {
         // facebook admob mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
             implementation 'com.google.ads.mediation:facebook:6.21.0.0@aar'
+        }
+        if (isContainPlatform(getUserSelectNetwork(), CLOUDX)) {
+            // cloudx
+            implementation 'io.cloudx:adapter-meta:3.2.0'
         }
     }
 
@@ -146,6 +156,10 @@ dependencies {
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
             implementation 'com.google.ads.mediation:unity:4.16.6.0@aar'
         }
+        if (isContainPlatform(getUserSelectNetwork(), CLOUDX)) {
+            // unityads
+            implementation 'io.cloudx:adapter-mintegral:3.2.0'
+        }
     }
 
     if (isContainPlatform(getUserSelectNetwork(), VUNGLE)) {
@@ -162,6 +176,10 @@ dependencies {
         // google vungle medation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
             implementation 'com.google.ads.mediation:vungle:7.6.3.0@aar'
+        }
+        if (isContainPlatform(getUserSelectNetwork(), CLOUDX)) {
+            // cloudx
+            implementation 'io.cloudx:adapter-vungle:3.2.0'
         }
     }
 
@@ -197,6 +215,10 @@ dependencies {
         // mintegral google mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
             implementation('com.google.ads.mediation:mintegral:17.0.61.1@aar')
+        }
+        if (isContainPlatform(getUserSelectNetwork(), CLOUDX)) {
+            // cloudx
+            implementation 'io.cloudx:adapter-mintegral:3.2.0'
         }
     }
 
