@@ -297,22 +297,22 @@ project.afterEvaluate {
         doLast { checkOutputFilesFlavor() }
     }
 
-    project.tasks.create("newEncryptString") {
+    project.tasks.create("AesNewEncrypt") {
         group "mobsdk"
         doLast { newEncryptStringTask() }
     }
 
-    project.tasks.create("newDecryptString") {
+    project.tasks.create("AesNewDecrypt") {
         group "mobsdk"
         doLast { newDecryptStringTask() }
     }
 
-    project.tasks.create("oldEncryptString") {
+    project.tasks.create("AesOldEncrypt") {
         group "mobsdk"
         doLast { oldEncryptStringTask() }
     }
 
-    project.tasks.create("oldDecryptString") {
+    project.tasks.create("AesOldDecrypt") {
         group "mobsdk"
         doLast { oldDecryptStringTask() }
     }
