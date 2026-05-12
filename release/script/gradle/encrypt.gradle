@@ -40,6 +40,14 @@ ext {
 }
 */
 
+def formatTimeString(long timeMillis) {
+    if (timeMillis <= 0) return "00:00:00"  // 负数或 0 返回 00:00:00
+    long totalSeconds = timeMillis / 1000
+    long hours = totalSeconds / 3600          // 每小时 3600 秒
+    long minutes = (totalSeconds % 3600) / 60 // 剩余秒数 / 60
+    long seconds = totalSeconds % 60          // 剩余秒数
+    return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+}
 
 /**
  * 首字母转大写
@@ -98,6 +106,7 @@ def taskTag() {
 }
 
 class Global {
+    static def compileStartTime = System.currentTimeMillis()
     static def sEncryptFileMap = new LinkedHashMap<String, Set<String>>()
     static def sMappingInfoMap = new LinkedHashMap<String, Set<String>>()
     static def sRemoveBundleMap = new LinkedHashMap<String, Set<String>>()
@@ -1168,6 +1177,9 @@ def executeFinalTask(flavor) {
                 checkOutputFilesFlavor()
                 printAnalyzeInfoFlavor()
                 openOutputFolder(taskMap.keySet()?.first())
+                def endTime = System.currentTimeMillis()
+                println greenText("${taskTag()}:${project.name}:${getName()} [$flavor] Compile Cost Time : " + formatTimeString(endTime - Global.compileStartTime))
+                println ""
             }
         }
     } catch (Exception e) {
@@ -1198,7 +1210,6 @@ def openOutputFolder(String tag) {
         def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
         cmd.execute()
         println "${taskTag()}:${project.name}:${methodName()} outputDirPath : $outputPath"
-        println ""
     } catch (Exception e) {
         println ":${project.name}:${methodName()} error : " + e.getMessage()
     }
@@ -2374,6 +2385,7 @@ def parseApkFileInfo(flavorName, apkFile) {
             "android.permission.READ_PHONE_NUMBERS",
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.ACCESS_BACKGROUND_LOCATION", // 背景定位
             "android.permission.POST_NOTIFICATIONS",
             "android.permission.RECORD_AUDIO",
             "android.permission.CAMERA",
@@ -2381,6 +2393,18 @@ def parseApkFileInfo(flavorName, apkFile) {
             "android.permission.WRITE_CONTACTS",
             "android.permission.READ_CALENDAR",
             "android.permission.WRITE_CALENDAR",
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.SCHEDULE_EXACT_ALARM",
+            "android.permission.USE_FULL_SCREEN_INTENT",
+            "android.permission.READ_SMS",
+            "android.permission.SEND_SMS",
+            "android.permission.RECEIVE_SMS",
+            "android.permission.READ_CALL_LOG",
+            "android.permission.WRITE_CALL_LOG",
+            "android.permission.BODY_SENSORS",
+            "android.permission.ACTIVITY_RECOGNITION",
+            "android.permission.USE_BIOMETRIC",
+            "android.permission.USE_FINGERPRINT"
     ] as Set
     def highRiskPermissions = allPermissions.findAll { highRiskPermissionSet.contains(it) }.collect { it.replace("android.permission.", "") }
     def debuggable = parseManifestBoolean(manifestOutput, "debuggable")
