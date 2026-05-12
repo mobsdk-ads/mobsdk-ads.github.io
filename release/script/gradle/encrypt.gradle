@@ -48,7 +48,7 @@ def formatTimeString(long timeMillis) {
     long seconds = totalSeconds % 60          // 剩余秒数
     return String.format("%02d:%02d:%02d", hours, minutes, seconds)
 }
-
+Global.startCompile(project)
 /**
  * 首字母转大写
  * @param s
@@ -101,7 +101,7 @@ def executeCommand(List<String> cmdList, long timeoutSeconds) {
     ]
 }
 
-def taskTag() {
+static def taskTag() {
     return "> Task "
 }
 
@@ -117,6 +117,10 @@ class Global {
             map?.values()?.each { it?.clear() }
             map?.clear()
         }
+    }
+
+    static def startCompile(project) {
+        Global.compileStartTime = System.currentTimeMillis()
     }
 }
 
@@ -1127,62 +1131,65 @@ def checkBundleFiles(flavor, bundleFile) {
     }
 }
 //////////////////////////////////////////////////////////////////////////////////////////
+// 在 afterEvaluate 中调用
 afterEvaluate {
-    executeFinalTaskFlavor()
+    executeFinalTask()
 }
 
-def executeFinalTaskFlavor() {
-    if (project.android.productFlavors.size() > 0) {// 如果有产品风味
-        project.android.productFlavors.each { flavor ->
-            executeFinalTask(flavor.name)
-        }
-    } else {
-        executeFinalTask(null)
-    }
-}
-
-def executeFinalTask(flavor) {
+// 核心函数：判断任务类型并绑定 doLast
+def executeFinalTask() {
     def methodName = { "executeFinalTask" }
     try {
         Global.clear()
-        def executeTasks = getGradle().getStartParameter().getTaskRequests()[0]["args"]
-        println ""
-        println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] >>>>>>>>>>>>>>>")
-        println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] startParameters : $executeTasks")
+
         final def taskMap = [:]
-        executeTasks.each {
-            def name = it.toString().toLowerCase(Locale.ENGLISH)
-            if (name.endsWith("bundle") || (name.contains("bundle") && name.contains("release"))) {
-                taskMap["aab"] = it.toString()
-            } else if (name.contains("assemble") && name.contains("release")) {
-                taskMap["apk"] = it.toString()
+
+        // 遍历 Gradle 实际执行的任务，精确匹配 AAB / APK / AAR
+        gradle.taskGraph.whenReady { taskGraph ->
+            taskGraph.allTasks.each { task ->
+                def nameLower = task.name.toLowerCase(Locale.ENGLISH)
+                // 判断模块类型
+                def isAppModule = task.project.plugins.hasPlugin("com.android.application")
+                if (nameLower.contains("release")) {
+                    // App Module bundle → AAB
+                    if (nameLower.contains("bundle") && isAppModule) {
+                        taskMap["aab"] = task.name
+                    }
+                    // App Module assemble → APK
+                    else if (nameLower.contains("assemble") && isAppModule) {
+                        taskMap["apk"] = task.name
+                    }
+                }
+            }
+
+            // 确定要绑定 doLast 的任务
+            def taskName = taskMap.get("aab") ?: taskMap.get("apk")
+            println ""
+            println greenText("${taskTag()}:${project.name}:${methodName()} >>>>>>>>>>>>>>>")
+            println greenText("${taskTag()}:${project.name}:${methodName()} taskMap : $taskMap")
+            println greenText("${taskTag()}:${project.name}:${methodName()} executeTaskName : $taskName")
+
+            if (taskName != null) {
+                // 去掉模块前缀
+                def shortTaskName = taskName.contains(":") ? taskName.split(":").last() : taskName
+                project.tasks.findByName(shortTaskName)?.doLast {
+                    println ""
+                    println greenText("${taskTag()}:${project.name}:${getName()} doLast -> transformAab2Apk | analyzingBundles | checkOutputFiles")
+                    transformAab2ApkLocked(taskMap.containsKey("aab"))
+                    printEncryptFileFlavor()
+                    analyzingBundlesFlavor()
+                    checkOutputFilesFlavor()
+                    printAnalyzeInfoFlavor()
+                    openOutputFolder(taskMap.keySet()?.first())
+                    def endTime = System.currentTimeMillis()
+                    println greenText("${taskTag()}:${project.name}:${getName()} Compile Cost Time : " + formatTimeString(endTime - Global.compileStartTime))
+                    println ""
+                }
             }
         }
-        def taskName = null
-        if (!taskMap.isEmpty()) {
-            taskName = taskMap.get("aab") ?: taskMap.get("apk")
-        }
-        println greenText("${taskTag()}:${project.name}:${methodName()} [$flavor] executeTaskName : $taskName")
-        if (taskName != null) {
-            def index = taskName.lastIndexOf(":")
-            if (index > -1) {
-                taskName = taskName.substring(index + 1)
-            }
-            project.tasks.findByName(taskName)?.doLast {
-                println ""
-                println greenText("${taskTag()}:${project.name}:${getName()} [$flavor] doLast -> transformAab2Apk | analyzingBundles | checkOutputFiles")
-                transformAab2ApkLocked(taskMap.containsKey("aab"))
-                printEncryptFileFlavor()
-                analyzingBundlesFlavor()
-                checkOutputFilesFlavor()
-                printAnalyzeInfoFlavor()
-                openOutputFolder(taskMap.keySet()?.first())
-                def endTime = System.currentTimeMillis()
-                println greenText("${taskTag()}:${project.name}:${getName()} [$flavor] Compile Cost Time : " + formatTimeString(endTime - Global.compileStartTime))
-                println ""
-            }
-        }
+
     } catch (Exception e) {
+        println "${taskTag()}:${project.name}:${methodName()} Error: ${e.message}"
     }
 }
 
@@ -1283,7 +1290,7 @@ def checkOutputFilesFlavor() {
 def printAnalyzeInfoFlavor() {
     if (project.android.productFlavors.size() > 0) {// 如果有产品风味
         project.android.productFlavors.each { flavor ->
-            printAnalyzeInfoInternal(flavor)
+            printAnalyzeInfoInternal(flavor.name)
         }
     } else {
         printAnalyzeInfoInternal(null)
