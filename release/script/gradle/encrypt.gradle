@@ -1143,7 +1143,7 @@ def executeFinalTask(flavor) {
         final def taskMap = [:]
         executeTasks.each {
             def name = it.toString().toLowerCase(Locale.ENGLISH)
-            if (name.contains("bundle") && name.contains("release")) {
+            if (name == "bundle" || (name.contains("bundle") && name.contains("release"))) {
                 taskMap["aab"] = it.toString()
             } else if (name.contains("assemble") && name.contains("release")) {
                 taskMap["apk"] = it.toString()
@@ -1167,7 +1167,7 @@ def executeFinalTask(flavor) {
                 analyzingBundlesFlavor()
                 checkOutputFilesFlavor()
                 printAnalyzeInfoFlavor()
-                openOutputFolder(taskName, taskMap.keySet()?.first())
+                openOutputFolder(taskMap.keySet()?.first())
             }
         }
     } catch (Exception e) {
@@ -1183,34 +1183,25 @@ def printAnalyzeInfoInternal(flavor) {
     }
 }
 
-def openOutputFolder(String taskName, String tag) {
+def openOutputFolder(String tag) {
     def methodName = { "openOutputFolder" }
     if (ext.find("openRelease") == false) {
         return
     }
-    if (isContainBundleRelease(taskName)) {
-        try {
-            def finalDir = "aab".equals(tag) ? "bundle" : "apk"
-            def outputPath = new File(project.buildDir, "outputs/$finalDir")
-            def outputReleasePath = new File(outputPath, "release")
-            if (outputReleasePath.exists()) {
-                outputPath = outputReleasePath
-            }
-            def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
-            cmd.execute()
-            println "${taskTag()}:${project.name}:${methodName()} outputDirPath : $outputPath"
-            println ""
-        } catch (Exception e) {
-            println ":${project.name}:${methodName()} error : " + e.getMessage()
+    try {
+        def finalDir = "aab".equals(tag) ? "bundle" : "apk"
+        def outputPath = new File(project.buildDir, "outputs/$finalDir")
+        def outputReleasePath = new File(outputPath, "release")
+        if (outputReleasePath.exists()) {
+            outputPath = outputReleasePath
         }
+        def cmd = getOpenFolderCmd(outputPath.getAbsolutePath()).join(" ")
+        cmd.execute()
+        println "${taskTag()}:${project.name}:${methodName()} outputDirPath : $outputPath"
+        println ""
+    } catch (Exception e) {
+        println ":${project.name}:${methodName()} error : " + e.getMessage()
     }
-}
-
-def isContainBundleRelease(String taskName) {
-    if (taskName != null && taskName.contains("Release")) {
-        return true;
-    }
-    return false;
 }
 
 def isAllowAab2Apk() {
