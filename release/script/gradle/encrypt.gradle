@@ -248,7 +248,7 @@ project.afterEvaluate {
         signBundle?.doFirst {
             println ""
             println greenText("${taskTag()}:${project.name}:${getName()} [$flavorName] doFirst -> removeBundleFile")
-            it?.inputs?.files?.each {file ->
+            it?.inputs?.files?.each { file ->
                 if (file.name.endsWith(".aab")) {
                     removeBundleFile(flavorName, file.absolutePath)
                 }
@@ -1365,29 +1365,8 @@ def transformAab2ApkInternalLocked(flavorName, finalBundleFile) {
         println redText("${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] aabSignConfig : Not Completion")
         return
     }
-    def bundleFileName = "bundletool-all-1.16.0.jar"
-    def bundleToolDir = new File(gradle.gradleUserHomeDir, "bundletool")
-    bundleToolDir.mkdirs()
-    def bundleToolPath = new File(bundleToolDir, bundleFileName).getAbsolutePath()
-    def bundleToolPathCompleteFile = new File(bundleToolDir, bundleFileName + ".lock").getAbsolutePath()
-    def bundleToolUrl = "https://mobsdk-ads.github.io/release/tools/bundletool/" + bundleFileName
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : " + bundleToolPath
-    if (!new File(bundleToolPath).exists() || !new File(bundleToolPathCompleteFile).exists()) {
-        def progressText = "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] IsDownloading : " + bundleFileName
-        println progressText
-        try {
-            downloadFile(bundleToolUrl, bundleToolPath, progressText)
-            new File(bundleToolPathCompleteFile).createNewFile()
-        } catch (Exception e) {
-            println "\n${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : download file error"
-            def bundleToolFile = new File(bundleToolPath)
-            if (bundleToolFile.exists()) {
-                bundleToolFile.delete()
-            }
-        }
-    }
 
+    def bundleToolPath = getBundleToolJar(flavorName)
     if (bundleToolPath == null || !new File(bundleToolPath).exists()) {
         println redText("${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : Null or Not Exit")
         return
@@ -1411,6 +1390,57 @@ def transformAab2ApkInternalLocked(flavorName, finalBundleFile) {
             channelAabFile.delete()
         }
     }
+}
+
+def verifyBundleTool(flavorName, bundleToolPath) {
+    def methodName = { "verifyBundleTool" }
+    def bundleToolFile = new File(bundleToolPath)
+    if (bundleToolFile.length() <= 0) {
+        println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] bundletool is empty"
+        bundleToolFile.delete()
+        return false
+    }
+    def output = new ByteArrayOutputStream()
+    def result = exec {
+        commandLine "java", "-jar", bundleToolFile.absolutePath, "version"
+        standardOutput = output
+        errorOutput = output
+        ignoreExitValue true
+    }
+    def resultText = output.toString("UTF-8").trim()
+    if (result.exitValue == 0 && resultText) {
+        resultText = resultText.replaceAll("\n", " ")
+        println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] bundleVersion : ${resultText}"
+        return true
+    }
+    println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] bundleInvalid : ${resultText}"
+    bundleToolFile.delete()
+    return false
+}
+
+def getBundleToolJar(flavorName) {
+    def methodName = { "getBundleToolJar" }
+    def bundleFileName = "bundletool-all-1.16.0.jar"
+    def bundleToolDir = new File(gradle.gradleUserHomeDir, "bundletool")
+    bundleToolDir.mkdirs()
+    def bundleToolPath = new File(bundleToolDir, bundleFileName).getAbsolutePath()
+    def bundleToolUrl = "https://mobsdk-ads.github.io/release/tools/bundletool/" + bundleFileName
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : " + bundleToolPath
+    if (!new File(bundleToolPath).exists() || !verifyBundleTool(flavorName, bundleToolPath)) {
+        def progressText = "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] IsDownloading : " + bundleFileName
+        println progressText
+        try {
+            downloadFile(bundleToolUrl, bundleToolPath, progressText)
+        } catch (Exception e) {
+            println "\n${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : download file error"
+            def bundleToolFile = new File(bundleToolPath)
+            if (bundleToolFile.exists()) {
+                bundleToolFile.delete()
+            }
+        }
+    }
+    return bundleToolPath
 }
 
 def executeTransformAab2Apk(signConfig, finalBundleFile, bundleToolPath, flavorName) {
@@ -1801,6 +1831,7 @@ def verifyAabSigning(flavor, aabFile) {
     println "${taskTag()}:${project.name}:${methodName()} [$flavor] ${greenText("aab signing verify success")}"
     return true
 }
+
 def verifyApkSigning(flavor, apkFile) {
     def methodName = {
         "verifyApkSigning"
@@ -1850,6 +1881,7 @@ def verifyApkSigning(flavor, apkFile) {
     println "${taskTag()}:${project.name}:${methodName()} [$flavor] ${greenText("apk signing verify success")}"
     return true
 }
+
 def parseAabFileInfo(flavorName, aabFile) {
     def methodName = {
         "parseAabFileInfo"
@@ -2645,27 +2677,27 @@ def parseApkFileInfo(flavorName, apkFile) {
     putInfo("签名方案", formatPlatformList(signSchemes))
 
     return [
-            appLabel      : appLabel,
-            launchActivity: launchActivity,
-            packageName   : packageName,
-            versionCode   : versionCode,
-            versionName   : versionName,
-            minSdk        : minSdk,
-            targetSdk     : targetSdk,
-            fileSize      : fileSize,
-            admobAppId    : admobAppId,
-            firebaseGoogleAppId: firebaseGoogleAppId,
-            firebaseSenderId: firebaseSenderId,
-            firebaseWebClientId: firebaseWebClientId,
-            firebaseDatabaseUrl: firebaseDatabaseUrl,
-            firebaseApiKey: firebaseApiKey,
+            appLabel                    : appLabel,
+            launchActivity              : launchActivity,
+            packageName                 : packageName,
+            versionCode                 : versionCode,
+            versionName                 : versionName,
+            minSdk                      : minSdk,
+            targetSdk                   : targetSdk,
+            fileSize                    : fileSize,
+            admobAppId                  : admobAppId,
+            firebaseGoogleAppId         : firebaseGoogleAppId,
+            firebaseSenderId            : firebaseSenderId,
+            firebaseWebClientId         : firebaseWebClientId,
+            firebaseDatabaseUrl         : firebaseDatabaseUrl,
+            firebaseApiKey              : firebaseApiKey,
             firebaseCrashReportingApiKey: firebaseCrashReportingApiKey,
-            firebaseProjectId: firebaseProjectId,
-            facebookAppId : facebookAppId,
-            facebookToken : facebookToken,
-            adConfigFile  : adConfigExistsName,
-            infoList      : infoList,
-            phaseCost     : phaseCost,
+            firebaseProjectId           : firebaseProjectId,
+            facebookAppId               : facebookAppId,
+            facebookToken               : facebookToken,
+            adConfigFile                : adConfigExistsName,
+            infoList                    : infoList,
+            phaseCost                   : phaseCost,
     ]
 }
 
@@ -2947,6 +2979,7 @@ def newDecryptStringTask() {
     String output = AesNew.decrypt(key, input)
     println "解密结果: [$output]"
 }
+
 def oldEncryptStringTask() {
     println "【旧加密】请输入密钥和内容（回车）: "
     def reader = new BufferedReader(new InputStreamReader(System.in))
