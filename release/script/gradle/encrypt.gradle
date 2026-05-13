@@ -1420,27 +1420,47 @@ def verifyBundleTool(flavorName, bundleToolPath) {
 
 def getBundleToolJar(flavorName) {
     def methodName = { "getBundleToolJar" }
-    def bundleFileName = "bundletool-all-1.16.0.jar"
+    def bundletoolVersion = "1.16.0"
+    def bundleFileName = "bundletool-all-${bundletoolVersion}.jar"
     def bundleToolDir = new File(gradle.gradleUserHomeDir, "bundletool")
     bundleToolDir.mkdirs()
     def bundleToolPath = new File(bundleToolDir, bundleFileName).getAbsolutePath()
-    def bundleToolUrl = "https://mobsdk-ads.github.io/release/tools/bundletool/" + bundleFileName
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
-    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : " + bundleToolPath
-    if (!new File(bundleToolPath).exists() || !verifyBundleTool(flavorName, bundleToolPath)) {
-        def progressText = "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] IsDownloading : " + bundleFileName
-        println progressText
-        try {
-            downloadFile(bundleToolUrl, bundleToolPath, progressText)
-        } catch (Exception e) {
-            println "\n${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : download file error"
-            def bundleToolFile = new File(bundleToolPath)
-            if (bundleToolFile.exists()) {
-                bundleToolFile.delete()
-            }
+    if (new File(bundleToolPath).exists() && verifyBundleTool(flavorName, bundleToolPath)) {
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : " + bundleToolPath
+        return bundleToolPath
+    }
+    // download bundletool file
+    def bundleToolUrlList = [
+            "https://gitee.com/taugin/downloads/releases/download/bundletool/${bundleFileName}",
+            "https://github.com/mobsdk-ads/mobsdk-ads.github.io/releases/download/bundletool/${bundleFileName}"
+    ]
+    bundleToolUrlList.forEach {bundleToolUrl->
+        if (!new File(bundleToolPath).exists() || !verifyBundleTool(flavorName, bundleToolPath)) {
+            downloadBundleTool(flavorName, bundleToolUrl, bundleToolPath, bundleFileName)
         }
     }
-    return bundleToolPath
+    if (verifyBundleTool(flavorName, bundleToolPath)) {
+        return bundleToolPath
+    }
+    return null
+}
+
+def downloadBundleTool(flavorName, bundleToolUrl, bundleToolPath, bundleFileName) {
+    def methodName = { "downloadFileTool" }
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
+    println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : " + bundleToolPath
+    def progressText = "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] IsDownloading : " + bundleFileName
+    println progressText
+    try {
+        downloadFile(bundleToolUrl, bundleToolPath, progressText)
+    } catch (Exception e) {
+        println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : ${redText("Download File Error")} [$e]"
+        println ""
+        def bundleToolFile = new File(bundleToolPath)
+        if (bundleToolFile.exists()) {
+            bundleToolFile.delete()
+        }
+    }
 }
 
 def executeTransformAab2Apk(signConfig, finalBundleFile, bundleToolPath, flavorName) {
@@ -1567,6 +1587,7 @@ def appendFilesIntoApk(workDir, packageFile, fileList, flavorName) {
 }
 
 def downloadFile(srcUrl, outputFilePath, progressText) {
+    def startTime = System.currentTimeMillis()
     if (new File(outputFilePath).exists()) {
         new File(outputFilePath).delete()
     }
@@ -1599,7 +1620,7 @@ def downloadFile(srcUrl, outputFilePath, progressText) {
         } catch (Exception error) {
         }
     }
-    println("\n" + progressText + " Download complete!")
+    println("\n" + progressText + " Download complete! [${formatTimeString(System.currentTimeMillis() - startTime)}]")
 }
 
 def extractFileFromZip(packageFile, filePath, outputFile) {
