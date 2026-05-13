@@ -1,3 +1,5 @@
+[2026-05-13 11:39:01]
+1. 更新bundletool验证方式
 [2026-05-12 15:46:44]
 1. 使用gradle.taskGraph.whenReady遍历所有任务查找bundleRelease和assembleRelease
 [2026-05-12 14:24:58]
