@@ -1142,7 +1142,7 @@ def executeFinalTask() {
     try {
         Global.clear()
 
-        final def taskMap = [:]
+        final def finalExecuteMap = [:]
 
         // 遍历 Gradle 实际执行的任务，精确匹配 AAB / APK / AAR
         gradle.taskGraph.whenReady { taskGraph ->
@@ -1153,34 +1153,34 @@ def executeFinalTask() {
                 if (nameLower.contains("release")) {
                     // App Module bundle → AAB
                     if (nameLower.contains("bundle") && isAppModule) {
-                        taskMap["aab"] = task.name
+                        finalExecuteMap["aab"] = task.name
                     }
                     // App Module assemble → APK
                     else if (nameLower.contains("assemble") && isAppModule) {
-                        taskMap["apk"] = task.name
+                        finalExecuteMap["apk"] = task.name
                     }
                 }
             }
 
             // 确定要绑定 doLast 的任务
-            def taskName = taskMap.get("aab") ?: taskMap.get("apk")
+            def executeTaskName = finalExecuteMap.get("aab") ?: finalExecuteMap.get("apk")
             println ""
             println greenText("${taskTag()}:${project.name}:${methodName()} >>>>>>>>>>>>>>>")
-            println greenText("${taskTag()}:${project.name}:${methodName()} taskMap : $taskMap")
-            println greenText("${taskTag()}:${project.name}:${methodName()} executeTaskName : $taskName")
+            println greenText("${taskTag()}:${project.name}:${methodName()} finalExecuteMap : $finalExecuteMap")
+            println greenText("${taskTag()}:${project.name}:${methodName()} executeTaskName : $executeTaskName")
 
-            if (taskName != null) {
+            if (executeTaskName != null) {
                 // 去掉模块前缀
-                def shortTaskName = taskName.contains(":") ? taskName.split(":").last() : taskName
+                def shortTaskName = executeTaskName.contains(":") ? executeTaskName.split(":").last() : executeTaskName
                 project.tasks.findByName(shortTaskName)?.doLast {
                     println ""
                     println greenText("${taskTag()}:${project.name}:${getName()} doLast -> transformAab2Apk | analyzingBundles | checkOutputFiles")
-                    transformAab2ApkLocked(taskMap.containsKey("aab"))
+                    transformAab2ApkLocked(finalExecuteMap.containsKey("aab"))
                     printEncryptFileFlavor()
                     analyzingBundlesFlavor()
                     checkOutputFilesFlavor()
                     printAnalyzeInfoFlavor()
-                    openOutputFolder(taskMap.keySet()?.first())
+                    openOutputFolder(finalExecuteMap.keySet()?.first())
                     def endTime = System.currentTimeMillis()
                     println greenText("${taskTag()}:${project.name}:${getName()} Compile Cost Time : " + formatTimeString(endTime - Global.compileStartTime))
                     println ""
@@ -1436,7 +1436,7 @@ def getBundleToolJar(flavorName) {
     ]
     bundleToolUrlList.forEach {bundleToolUrl->
         if (!new File(bundleToolPath).exists() || !verifyBundleTool(flavorName, bundleToolPath)) {
-            downloadBundleTool(flavorName, bundleToolUrl, bundleToolPath, bundleFileName)
+            downloadBundleTool(flavorName, bundleToolUrl, bundleToolPath)
         }
     }
     if (verifyBundleTool(flavorName, bundleToolPath)) {
@@ -1445,14 +1445,12 @@ def getBundleToolJar(flavorName) {
     return null
 }
 
-def downloadBundleTool(flavorName, bundleToolUrl, bundleToolPath, bundleFileName) {
+def downloadBundleTool(flavorName, bundleToolUrl, bundleToolPath) {
     def methodName = { "downloadFileTool" }
     println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolUrl : " + bundleToolUrl
     println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : " + bundleToolPath
-    def progressText = "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] IsDownloading : " + bundleFileName
-    println progressText
     try {
-        downloadFile(bundleToolUrl, bundleToolPath, progressText)
+        downloadFile(flavorName, bundleToolUrl, bundleToolPath)
     } catch (Exception e) {
         println "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] bundleToolJar : ${redText("Download File Error")} [$e]"
         println ""
@@ -1586,28 +1584,37 @@ def appendFilesIntoApk(workDir, packageFile, fileList, flavorName) {
     }
 }
 
-def downloadFile(srcUrl, outputFilePath, progressText) {
+def downloadFile(flavorName, srcUrl, outputFilePath) {
+    def methodName = { "downloadFileTool" }
     def startTime = System.currentTimeMillis()
-    if (new File(outputFilePath).exists()) {
-        new File(outputFilePath).delete()
-    }
+    def file = new File(outputFilePath)
+    if (file.exists()) file.delete()
+
     def url = new URL(srcUrl)
     def connection = url.openConnection()
-    def fileSize = connection.contentLength
+    def fileSize = connection.contentLengthLong
     def inputStream = connection.inputStream
-    def outputStream = new FileOutputStream(outputFilePath)
+    def outputStream = new FileOutputStream(file)
+
     byte[] buffer = new byte[4096]
     int bytesRead
     long totalBytesRead = 0
+    int barLength = 30 // 进度条长度
+    def bundleFileName = file.getName()
+    def progressText = "${taskTag()}:${project.name}:${methodName()} [" + flavorName + "] IsDownloading : " + bundleFileName
     try {
         while ((bytesRead = inputStream.read(buffer)) != -1) {
             outputStream.write(buffer, 0, bytesRead)
             totalBytesRead += bytesRead
+
             if (fileSize > 0) {
-                def progress = (totalBytesRead * 100 / fileSize) as int
-                System.out.print("\r\033[K" + greenText(progressText + " Downloading... [$totalBytesRead/$fileSize] $progress% complete"))
+                double fraction = totalBytesRead / (double) fileSize
+                int filled = (fraction * barLength) as int
+                int empty = barLength - filled
+                String bar = "[" + "█" * filled + "-" * empty + "]"
+                System.out.print("\r\033[K" + greenText("${progressText} Downloading ${bar} ${(fraction * 100).intValue()}% [$totalBytesRead/$fileSize]"))
             } else {
-                System.out.print("\r\033[K" + greenText(progressText + " Downloading... $totalBytesRead complete"))
+                System.out.print("\r\033[K" + greenText("${progressText} Downloading... $totalBytesRead bytes"))
             }
             System.out.flush()
         }
@@ -1615,12 +1622,12 @@ def downloadFile(srcUrl, outputFilePath, progressText) {
         throw e
     } finally {
         try {
-            inputStream.close()
+            inputStream.close();
             outputStream.close()
-        } catch (Exception error) {
+        } catch (Exception ignored) {
         }
     }
-    println("\n" + progressText + " Download complete! [${formatTimeString(System.currentTimeMillis() - startTime)}]")
+    println("\n" + progressText + " Downloaded complete! [${formatTimeString(System.currentTimeMillis() - startTime)}]")
 }
 
 def extractFileFromZip(packageFile, filePath, outputFile) {
