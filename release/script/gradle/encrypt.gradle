@@ -1091,7 +1091,8 @@ def zippingExtraFile(flavor, bundleFilePath) {
                     for (file in waitForZipFiles) {
                         fileset(file: file.absolutePath)
                     }
-                    fileset(file: outputFile.absolutePath)
+                    // 不压缩aab/apk文件
+                    // fileset(file: outputFile.absolutePath)
                 }
                 waitForZipFiles.each {
                     it.delete()
