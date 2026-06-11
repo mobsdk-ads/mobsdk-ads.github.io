@@ -919,15 +919,14 @@ def removeBundleMetaData(flavor) {
 
 def handleMappingProgard(flavor) {
     def methodName = { "handleMappingPro" }
-    List<String> blackStringList = null
-    if (ext != null && ext.has("proguardBlackString")) {
-        blackStringList = ext["proguardBlackString"]
+    List<String> excludeProguard = null
+    excludeProguard = ext?.find("excludeProguard")
+    if (excludeProguard == null) {
+        excludeProguard = ext?.find("proguardBlackString")
     }
-    if (blackStringList == null) {
-        blackStringList = []
-    }
-    blackStringList.add("com.sdkhub.")
-    if (blackStringList != null && !blackStringList.isEmpty()) {
+    excludeProguard = excludeProguard ?: []
+    excludeProguard.add("com.sdkhub.")
+    if (excludeProguard != null && !excludeProguard.isEmpty()) {
         def mappingFile = null
         def mappingBack = null
         def mappingTemp = null
@@ -950,8 +949,8 @@ def handleMappingProgard(flavor) {
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] outputFile : " + mappingFile
         println "${taskTag()}:${project.name}:${methodName()} [$flavor] allOutputs : " + mappingReleaseDir.list()
         if (mappingFile != null && mappingFile.exists()) {
-            println "${taskTag()}:${project.name}:${methodName()} [$flavor] processing : 打包前移除混淆符号$blackStringList"
-            addMappingInfo(flavor, blackStringList.join(","))
+            println "${taskTag()}:${project.name}:${methodName()} [$flavor] processing : 打包前移除混淆符号$excludeProguard"
+            addMappingInfo(flavor, excludeProguard.join(","))
             if (mappingBack != null) {
                 if (mappingBack.exists()) {
                     mappingBack.delete()
@@ -983,13 +982,13 @@ def handleMappingProgard(flavor) {
                         // 新块初始化
                         isProguardStart = true
                         proguardList.add(line)
-                        if (blackStringList.any { line.contains(it) }) {
+                        if (excludeProguard.any { line.contains(it) }) {
                             isRemove = true
                         }
                     } else {
                         if (isProguardStart) {
                             proguardList.add(line)
-                            if (blackStringList.any { line.contains(it) }) {
+                            if (excludeProguard.any { line.contains(it) }) {
                                 isRemove = true
                             }
                         } else {
