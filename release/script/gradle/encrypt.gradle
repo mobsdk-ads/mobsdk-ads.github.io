@@ -199,8 +199,8 @@ try {
                 }
         }
         println("======================add maven address======================")
-        mavenUrls.each {
-            println("$it")
+        mavenUrls.forEach {
+            println("maven { url = uri(\"$it\") }")
         }
         println("======================add maven success======================")
     }
