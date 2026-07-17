@@ -188,6 +188,7 @@ def mavenUrls = [
         "https://android-sdk.is.com/",
         "https://artifact.bytedance.com/repository/pangle",
         "https://artifacts.applovin.com/android",
+        "https://artifact.taurusx.com/artifactory/taurusx-sdk/",
 ]
 try {
     def useInternalMaven = ext.find("allowDynamicMaven") != false
@@ -205,8 +206,8 @@ try {
         println("======================add maven success======================")
     }
 } catch (Exception e) {
-    println("add maven error : " + e)
-    println("please add the below repositories into settings.gradle.kts manually:")
+    println(redText("add maven error : " + e))
+    println(redText("please add the below repositories into settings.gradle.kts manually:"))
     println("dependencyResolutionManagement {")
     println("    repositories {")
     mavenUrls.forEach {
