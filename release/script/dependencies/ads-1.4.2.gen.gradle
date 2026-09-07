@@ -85,7 +85,7 @@ dependencies {
         }
         // admob applovin mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:applovin:13.6.4.0@aar'
+            implementation 'com.google.ads.mediation:applovin:13.6.4.0'
         }
     }
 
@@ -116,7 +116,7 @@ dependencies {
         }
         // facebook admob mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:facebook:6.22.0.0@aar'
+            implementation 'com.google.ads.mediation:facebook:6.22.0.0'
         }
     }
 
@@ -133,7 +133,7 @@ dependencies {
         }
         // Pangle admob mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:pangle:8.2.0.4.0@aar'
+            implementation 'com.google.ads.mediation:pangle:8.2.0.4.0'
         }
     }
 
@@ -150,7 +150,7 @@ dependencies {
         }
         // google unity mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:unity:4.20.0.0@aar'
+            implementation 'com.google.ads.mediation:unity:4.20.0.0'
         }
     }
 
@@ -167,7 +167,7 @@ dependencies {
         }
         // google vungle medation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:vungle:7.7.7.0@aar'
+            implementation 'com.google.ads.mediation:vungle:7.7.7.0'
         }
     }
 
@@ -184,7 +184,7 @@ dependencies {
         }
         // google ironsource mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:ironsource:9.6.0.0@aar'
+            implementation 'com.google.ads.mediation:ironsource:9.6.0.0'
         }
     }
 
@@ -202,7 +202,7 @@ dependencies {
         }
         // mintegral google mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation('com.google.ads.mediation:mintegral:17.1.71.0@aar')
+            implementation('com.google.ads.mediation:mintegral:17.1.71.0')
         }
     }
 
@@ -221,7 +221,7 @@ dependencies {
         }
         // chartboost admob mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation('com.google.ads.mediation:chartboost:9.13.0.0@aar')
+            implementation('com.google.ads.mediation:chartboost:9.13.0.0')
         }
     }
 
@@ -239,7 +239,7 @@ dependencies {
         }
         // fyber admob mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation('com.google.ads.mediation:fyber:8.4.7.0@aar')
+            implementation('com.google.ads.mediation:fyber:8.4.7.0')
         }
     }
 
@@ -256,7 +256,7 @@ dependencies {
         }
         // google bigo mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation 'com.google.ads.mediation:bigo:6.0.0.0@aar'
+            implementation 'com.google.ads.mediation:bigo:6.0.0.0'
         }
     }
 
@@ -312,7 +312,7 @@ dependencies {
         }
         // BidMachine admob mediation
         if (isContainPlatform(getUserSelectNetwork(), ADMOB)) {
-            implementation('com.google.ads.mediation:bidmachine:3.7.1.1@aar')
+            implementation('com.google.ads.mediation:bidmachine:3.7.1.1')
         }
     }
 
