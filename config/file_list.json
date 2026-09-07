@@ -3,7 +3,7 @@
 ,
   { "path": "release/script/gradle/encrypt.gradle", "size": "142.38KB", "modified_time": "2026-09-07 12:09:54" }
 ,
-  { "path": "release/script/dependencies/ads-1.4.2.gen.gradle", "size": "13.69KB", "modified_time": "2026-09-07 12:46:25" }
+  { "path": "release/script/dependencies/ads-1.4.2.gen.gradle", "size": "13.87KB", "modified_time": "2026-09-07 17:05:45" }
 ,
   { "path": "release/script/dependencies/ads-1.4.1.gradle", "size": "13.46KB", "modified_time": "2026-07-17 12:58:01" }
 ,
@@ -241,5 +241,5 @@
 ,
   { "path": "release/sdk/abtads/abtads_1.3.6-release.aar", "size": "253.49KB", "modified_time": "2026-03-13 11:06:41" }
 ,
-  { "path": "release/logs/commit_message.log", "size": "3.82KB", "modified_time": "2026-09-07 16:06:03" }
+  { "path": "release/logs/commit_message.log", "size": "3.87KB", "modified_time": "2026-09-07 17:11:23" }
 ]
