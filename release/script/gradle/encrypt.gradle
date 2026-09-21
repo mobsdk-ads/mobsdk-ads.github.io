@@ -1916,7 +1916,9 @@ def aabDexU16(byte[] data, int offset) {
 }
 
 // Google Play 混淆率最低阈值，和检测脚本默认值保持一致
-def AAB_GP_OBFUSCATION_THRESHOLD = 25.0
+class AabObfuscationConfig {
+    static final double GP_THRESHOLD = 25.0
+}
 
 def aabDexU32(byte[] data, int offset) {
     return ByteBuffer.wrap(data, offset, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt() & 0xFFFFFFFFL
@@ -2101,7 +2103,7 @@ def parseAabObfuscationInfo(File aabFile) {
     results.add([name: "DEX名称启发式", percentage: heuristic.percentage, selected: r8 == null && mapping == null])
     def selected = results.find { it.selected } ?: results.last()
     def output = []
-    output.add([key: "混淆阈值", value: "${formatAabPercent(AAB_GP_OBFUSCATION_THRESHOLD)}; 结果=${selected.percentage >= AAB_GP_OBFUSCATION_THRESHOLD ? '通过' : '低于阈值'}"])
+    output.add([key: "混淆阈值", value: "${formatAabPercent(AabObfuscationConfig.GP_THRESHOLD)}; 结果=${selected.percentage >= AabObfuscationConfig.GP_THRESHOLD ? '通过' : '低于阈值'}"])
     output.add([key: "混淆比例", value: "采用=${selected.name}; 混淆占比=${formatAabPercent(selected.percentage)}"])
     results.each { result -> output.add([key: "混淆比例", value: "${result.selected ? '[采用]' : '[对比]'} ${result.name} | ${formatAabPercent(result.percentage)}"]) }
     output.add([key: "混淆检测", value: "DEX文件=${dexReports.size()}; R8校验=${r8 == null ? '未采用' : '匹配'}"])
