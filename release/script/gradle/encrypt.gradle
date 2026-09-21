@@ -1911,11 +1911,211 @@ def verifyApkSigning(flavor, apkFile) {
     return true
 }
 
+def aabDexU16(byte[] data, int offset) {
+    return ByteBuffer.wrap(data, offset, 2).order(java.nio.ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF
+}
+
+def aabDexU32(byte[] data, int offset) {
+    return ByteBuffer.wrap(data, offset, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt() & 0xFFFFFFFFL
+}
+
+def aabDexUleb(byte[] data, int offset) {
+    long value = 0
+    int shift = 0
+    while (true) {
+        int current = data[offset++] & 0xFF
+        value |= (long) (current & 0x7F) << shift
+        if ((current & 0x80) == 0) {
+            return [value: value, offset: offset]
+        }
+        shift += 7
+        if (shift > 35) {
+            throw new IllegalArgumentException("invalid DEX ULEB128")
+        }
+    }
+}
+
+def isAabObfuscatedName(String name) {
+    if (!name || !(name ==~ /^[A-Za-z_$][A-Za-z0-9_$]*$/)) {
+        return false
+    }
+    def javaKeywords = ["a", "i", "j", "k", "v", "x", "y", "z", "id", "in", "is", "to", "get", "set", "run", "main", "ok", "on", "of", "do", "io"] as Set
+    if (name.length() <= 2) {
+        return !javaKeywords.contains(name)
+    }
+    if (name.length() <= 4 && name == name.toLowerCase(Locale.ROOT) && !(name =~ /[aeiou]/).find()) {
+        return true
+    }
+    return name.length() <= 3 && name == name.toLowerCase(Locale.ROOT) && name ==~ /^[a-z]+$/
+}
+
+def parseAabDexSymbols(byte[] data, String entryName) {
+    if (data.length < 0x70 || new String(data, 0, 4, StandardCharsets.US_ASCII) != "dex\n") {
+        throw new IllegalArgumentException("invalid DEX file: " + entryName)
+    }
+    int stringCount = (int) aabDexU32(data, 0x38)
+    int stringOffset = (int) aabDexU32(data, 0x3C)
+    int typeCount = (int) aabDexU32(data, 0x40)
+    int typeOffset = (int) aabDexU32(data, 0x44)
+    int fieldCount = (int) aabDexU32(data, 0x50)
+    int fieldOffset = (int) aabDexU32(data, 0x54)
+    int methodCount = (int) aabDexU32(data, 0x58)
+    int methodOffset = (int) aabDexU32(data, 0x5C)
+    int classCount = (int) aabDexU32(data, 0x60)
+    int classOffset = (int) aabDexU32(data, 0x64)
+    def strings = []
+    stringCount.times { index ->
+        int offset = (int) aabDexU32(data, stringOffset + index * 4)
+        offset = (int) aabDexUleb(data, offset).offset
+        int end = offset
+        while (end < data.length && data[end] != 0) end++
+        strings.add(new String(data, offset, end - offset, StandardCharsets.UTF_8))
+    }
+    def typeStrings = []
+    typeCount.times { index -> typeStrings.add(strings[(int) aabDexU32(data, typeOffset + index * 4)]) }
+    def symbols = [class: [], method: [], field: []]
+    classCount.times { index ->
+        int offset = classOffset + index * 32
+        String descriptor = typeStrings[(int) aabDexU32(data, offset)]
+        String className = descriptor.startsWith("L") && descriptor.endsWith(";") ? descriptor.substring(1, descriptor.length() - 1).replace("/", ".") : descriptor
+        symbols.class.add([name: className.substring(className.lastIndexOf(".") + 1), descriptor: descriptor, fullName: className])
+    }
+    methodCount.times { index ->
+        int offset = methodOffset + index * 8
+        symbols.method.add([name: strings[(int) aabDexU32(data, offset + 4)]])
+    }
+    fieldCount.times { index ->
+        int offset = fieldOffset + index * 8
+        symbols.field.add([name: strings[(int) aabDexU32(data, offset + 4)]])
+    }
+    return [name: entryName, symbols: symbols]
+}
+
+def aabFindNestedValue(value, String key) {
+    if (value instanceof Map) {
+        if (value.containsKey(key)) return value[key]
+        for (child in value.values()) {
+            def result = aabFindNestedValue(child, key)
+            if (result != null) return result
+        }
+    } else if (value instanceof Collection) {
+        for (child in value) {
+            def result = aabFindNestedValue(child, key)
+            if (result != null) return result
+        }
+    }
+    return null
+}
+
+def formatAabPercent(value) {
+    return String.format(Locale.ROOT, "%.2f%%", (value ?: 0.0) as double)
+}
+
+def parseAabObfuscationInfo(File aabFile) {
+    def dexReports = []
+    def metadata = null
+    def mappingText = null
+    def dexChecksums = [:]
+    new ZipFile(aabFile).withCloseable { zip ->
+        zip.entries().each { entry ->
+            if (entry.isDirectory()) return
+            if (entry.name == "BUNDLE-METADATA/com.android.tools/r8.json") {
+                metadata = new groovy.json.JsonSlurper().parse(zip.getInputStream(entry))
+            } else if (entry.name == "BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map") {
+                mappingText = zip.getInputStream(entry).getText("UTF-8")
+            } else if (entry.name ==~ /(?:[^\/]+\/)*classes\d*\.dex/) {
+                byte[] bytes = zip.getInputStream(entry).bytes
+                dexReports.add(parseAabDexSymbols(bytes, entry.name))
+                dexChecksums[entry.name] = MessageDigest.getInstance("SHA-256").digest(bytes).encodeHex().toString()
+            }
+        }
+    }
+    if (dexReports.isEmpty()) return []
+
+    def categoryStats = { Map symbolsByCategory ->
+        def result = [:]
+        int total = 0
+        int obfuscated = 0
+        ["class", "method", "field"].each { category ->
+            int categoryTotal = symbolsByCategory[category].size()
+            int categoryObfuscated = symbolsByCategory[category].count { isAabObfuscatedName(it.name) }
+            total += categoryTotal
+            obfuscated += categoryObfuscated
+            result[category] = [total: categoryTotal, obfuscated: categoryObfuscated,
+                                percentage: categoryTotal ? categoryObfuscated * 100.0 / categoryTotal : 0.0]
+        }
+        return [total: total, obfuscated: obfuscated,
+                percentage: total ? obfuscated * 100.0 / total : 0.0, categories: result]
+    }
+    def heuristicSymbols = [class: [], method: [], field: []]
+    dexReports.each { dex -> dex.symbols.each { category, items -> heuristicSymbols[category].addAll(items) } }
+    def heuristic = categoryStats(heuristicSymbols)
+
+    def mapping = null
+    if (mappingText != null) {
+        def classMapping = [:]
+        int memberTotal = 0
+        int memberObfuscated = 0
+        mappingText.readLines().each { line ->
+            def classMatcher = line =~ /^([^\s].*?)\s+->\s+([^:]+):$/
+            def memberMatcher = line =~ /^\s+(.+?)\s+->\s+([^\s]+)$/
+            if (classMatcher.matches()) {
+                classMapping[classMatcher.group(2)] = [original: classMatcher.group(1), obfuscated: classMatcher.group(1) != classMatcher.group(2)]
+            } else if (memberMatcher.matches()) {
+                memberTotal++
+                String original = memberMatcher.group(1).tokenize(" ").last()
+                memberObfuscated += original != memberMatcher.group(2).split("\\(", 2)[0] ? 1 : 0
+            }
+        }
+        def dexClasses = dexReports.collectMany { dex -> dex.symbols.class.findAll { !it.fullName.tokenize(".").last().contains('$') }.collect { it.fullName } }.toSet()
+        int classTotal = dexClasses.size()
+        int classObfuscated = dexClasses.count { classMapping[it]?.obfuscated == true }
+        mapping = [percentage: classTotal ? classObfuscated * 100.0 / classTotal : 0.0,
+                   categories: [class: [total: classTotal, obfuscated: classObfuscated,
+                                       percentage: classTotal ? classObfuscated * 100.0 / classTotal : 0.0]],
+                   memberTotal: memberTotal, memberObfuscated: memberObfuscated,
+                   memberPercentage: memberTotal ? memberObfuscated * 100.0 / memberTotal : 0.0]
+    }
+
+    def r8 = null
+    if (metadata != null) {
+        def rawNoObfuscation = aabFindNestedValue(metadata, "noObfuscationPercentage")
+        try {
+            double noObfuscation = rawNoObfuscation as double
+            if (noObfuscation >= 0 && noObfuscation <= 1) noObfuscation *= 100
+            else if (noObfuscation > 100 && noObfuscation <= 10000) noObfuscation /= 100
+            def metadataChecksums = metadata.dexFiles instanceof Collection ? metadata.dexFiles.collectEntries { item -> [item.checksum, true] } : [:]
+            boolean checksumMatch = !metadataChecksums.isEmpty() && metadataChecksums.keySet() == dexChecksums.values().toSet()
+            if (noObfuscation >= 0 && noObfuscation <= 100 && checksumMatch) {
+                r8 = [percentage: 100.0 - noObfuscation, checksumMatch: true]
+            }
+        } catch (Exception ignored) {
+        }
+    }
+    def results = []
+    if (r8 != null) results.add([name: "Google Play r8.json", percentage: r8.percentage, selected: true])
+    if (mapping != null) results.add([name: "proguard.map(本地估算)", percentage: mapping.percentage, selected: r8 == null])
+    results.add([name: "DEX名称启发式", percentage: heuristic.percentage, selected: r8 == null && mapping == null])
+    def selected = results.find { it.selected } ?: results.last()
+    def output = []
+    output.add([key: "混淆比例", value: "采用=${selected.name}; 混淆占比=${formatAabPercent(selected.percentage)}"])
+    results.each { result -> output.add([key: "混淆比例", value: "${result.selected ? '[采用]' : '[对比]'} ${result.name} | ${formatAabPercent(result.percentage)}"]) }
+    output.add([key: "混淆检测", value: "DEX文件=${dexReports.size()}; R8校验=${r8 == null ? '未采用' : '匹配'}"])
+    def selectedCategories = r8 != null ? null : (mapping != null ? mapping.categories : heuristic.categories)
+    ["class", "method", "field"].each { category ->
+        def value = selectedCategories?.get(category)
+        output.add([key: "混淆分类", value: "${category} | 总数=${value?.total ?: '-'}; 疑似混淆=${value?.obfuscated ?: '-'}; 占比=${value == null ? '-' : formatAabPercent(value.percentage)}"])
+    }
+    if (mapping != null) output.add([key: "混淆分类", value: "mapping成员 | 总数=${mapping.memberTotal}; 疑似混淆=${mapping.memberObfuscated}; 占比=${formatAabPercent(mapping.memberPercentage)}"])
+    return output
+}
+
 def parseAabFileInfo(flavorName, aabFile) {
     def methodName = {
         "parseAabFileInfo"
     }
     def infoList = []
+    def obfuscationInfo = []
     def phaseCost = [:]
     def phaseStartAt = { ->
         System.currentTimeMillis()
@@ -2101,8 +2301,18 @@ def parseAabFileInfo(flavorName, aabFile) {
     putInfo("文件哈希", formatHex(fileDigestMap["SHA-1"]))
     putInfo("文件哈希", formatHex(fileDigestMap["SHA-256"]))
 
+    try {
+        parseAabObfuscationInfo(aabFile).each { item ->
+            obfuscationInfo.add(item)
+        }
+    } catch (Exception e) {
+        obfuscationInfo.add([key: "混淆比例", value: "[检测失败] " + e.message])
+        println "${taskTag()}:${project.name}:${methodName()} [${flavorName}] obfuscationCheckError : ${e}"
+    }
+
     return [
             infoList  : infoList,
+            obfuscationInfo: obfuscationInfo,
             phaseCost : phaseCost,
             signMd5   : formatHex(certMd5),
             signSha1  : formatHex(certSha1),
@@ -2811,6 +3021,14 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
         aabInfo.infoList.each { item ->
             addAnalyzeInfoContent(flavorName, "    " + item.key + " | " + item.value)
         }
+        if (aabInfo.obfuscationInfo != null && !aabInfo.obfuscationInfo.isEmpty()) {
+            addAnalyzeInfoContent(flavorName, separator)
+            addAnalyzeInfoContent(flavorName, "AAB混淆信息 -->")
+            addAnalyzeInfoContent(flavorName, separator)
+            aabInfo.obfuscationInfo.each { item ->
+                addAnalyzeInfoContent(flavorName, "    " + item.key + " | " + item.value)
+            }
+        }
     }
     if (apkInfo != null) {
         addAnalyzeInfoContent(flavorName, separator)
@@ -2866,6 +3084,14 @@ def printAnalyzeBundleInfo(flavorName, bundleFile, aabInfo, apkInfo) {
                 writer.writeLine("AAB文件信息 -->")
                 aabInfo.infoList.each { item ->
                     writer.writeLine("    " + item.key + " | " + item.value)
+                }
+                if (aabInfo.obfuscationInfo != null && !aabInfo.obfuscationInfo.isEmpty()) {
+                    writer.writeLine(separator)
+                    writer.writeLine("AAB混淆信息 -->")
+                    writer.writeLine(separator)
+                    aabInfo.obfuscationInfo.each { item ->
+                        writer.writeLine("    " + item.key + " | " + item.value)
+                    }
                 }
             }
             if (apkInfo != null) {
