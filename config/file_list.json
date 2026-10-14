@@ -1,7 +1,7 @@
 [
   { "path": "release/script/gradle/rename_resource.gradle", "size": "22.57KB", "modified_time": "2026-07-09 18:47:06" }
 ,
-  { "path": "release/script/gradle/encrypt.gradle", "size": "154.01KB", "modified_time": "2026-09-21 12:48:35" }
+  { "path": "release/script/gradle/encrypt.gradle", "size": "155.40KB", "modified_time": "2026-10-14 13:32:39" }
 ,
   { "path": "release/script/dependencies/ads-1.4.4.gradle", "size": "13.60KB", "modified_time": "2026-10-08 11:38:29" }
 ,
@@ -327,5 +327,5 @@
 ,
   { "path": "release/sdk/abtads/abtads_1.3.6-release.aar", "size": "253.49KB", "modified_time": "2026-03-13 11:06:41" }
 ,
-  { "path": "release/logs/commit_message.log", "size": "4.62KB", "modified_time": "2026-10-08 11:40:17" }
+  { "path": "release/logs/commit_message.log", "size": "4.67KB", "modified_time": "2026-10-14 13:33:34" }
 ]
