@@ -3,6 +3,10 @@
 ,
   { "path": "release/script/gradle/encrypt.gradle", "size": "155.40KB", "modified_time": "2026-10-14 13:32:39" }
 ,
+  { "path": "release/script/dependencies/ads-1.4.5.gradle", "size": "13.46KB", "modified_time": "2026-11-06 19:11:49" }
+,
+  { "path": "release/script/dependencies/ads-1.4.5.gen.gradle", "size": "13.66KB", "modified_time": "2026-11-06 19:07:17" }
+,
   { "path": "release/script/dependencies/ads-1.4.4.gradle", "size": "13.60KB", "modified_time": "2026-11-02 19:26:52" }
 ,
   { "path": "release/script/dependencies/ads-1.4.4.gen.gradle", "size": "13.81KB", "modified_time": "2026-11-06 10:40:06" }
@@ -43,6 +47,10 @@
 ,
   { "path": "release/script/dependencies/ads-1.3.4.gradle", "size": "12.09KB", "modified_time": "2025-08-08 15:27:27" }
 ,
+  { "path": "release/sdk/sitads/sitads_1.4.5.gen-release.aar", "size": "299.74KB", "modified_time": "2026-11-06 19:11:41" }
+,
+  { "path": "release/sdk/sitads/sitads_1.4.5-release.aar", "size": "295.19KB", "modified_time": "2026-11-06 19:14:09" }
+,
   { "path": "release/sdk/sitads/sitads_1.4.4.gen-release.aar", "size": "299.73KB", "modified_time": "2026-11-06 10:42:25" }
 ,
   { "path": "release/sdk/sitads/sitads_1.4.4-release.aar", "size": "295.18KB", "modified_time": "2026-11-06 10:40:00" }
@@ -68,6 +76,10 @@
   { "path": "release/sdk/sitads/sitads_1.3.8.cx-release.aar", "size": "270.50KB", "modified_time": "2026-04-29 14:13:48" }
 ,
   { "path": "release/sdk/sitads/sitads_1.3.8-release.aar", "size": "260.83KB", "modified_time": "2026-04-28 16:52:44" }
+,
+  { "path": "release/sdk/shxads/shxads_1.4.5.gen-release.aar", "size": "299.54KB", "modified_time": "2026-11-06 19:11:39" }
+,
+  { "path": "release/sdk/shxads/shxads_1.4.5-release.aar", "size": "295.23KB", "modified_time": "2026-11-06 19:14:07" }
 ,
   { "path": "release/sdk/shxads/shxads_1.4.4.gen-release.aar", "size": "299.53KB", "modified_time": "2026-11-06 10:42:23" }
 ,
@@ -101,6 +113,10 @@
 ,
   { "path": "release/sdk/shxads/shxads_1.3.6-release.aar", "size": "253.03KB", "modified_time": "2026-03-13 11:06:54" }
 ,
+  { "path": "release/sdk/runads/runads_1.4.5.gen-release.aar", "size": "299.55KB", "modified_time": "2026-11-06 19:11:36" }
+,
+  { "path": "release/sdk/runads/runads_1.4.5-release.aar", "size": "295.44KB", "modified_time": "2026-11-06 19:14:05" }
+,
   { "path": "release/sdk/runads/runads_1.4.4.gen-release.aar", "size": "299.56KB", "modified_time": "2026-11-06 10:42:21" }
 ,
   { "path": "release/sdk/runads/runads_1.4.4-release.aar", "size": "295.45KB", "modified_time": "2026-11-06 10:39:56" }
@@ -110,6 +126,10 @@
   { "path": "release/sdk/runads/runads_1.4.3-release.aar", "size": "293.71KB", "modified_time": "2026-09-14 17:39:35" }
 ,
   { "path": "release/sdk/runads/runads_1.4.1-release.aar", "size": "294.10KB", "modified_time": "2026-08-20 11:49:56" }
+,
+  { "path": "release/sdk/museads/museads_1.4.5.gen-release.aar", "size": "299.32KB", "modified_time": "2026-11-06 19:11:34" }
+,
+  { "path": "release/sdk/museads/museads_1.4.5-release.aar", "size": "295.19KB", "modified_time": "2026-11-06 19:14:03" }
 ,
   { "path": "release/sdk/museads/museads_1.4.4.gen-release.aar", "size": "299.31KB", "modified_time": "2026-11-06 10:42:19" }
 ,
@@ -148,6 +168,10 @@
   { "path": "release/sdk/museads/museads_1.3.4-release.aar", "size": "249.80KB", "modified_time": "2025-09-02 10:55:03" }
 ,
   { "path": "release/sdk/mtsads/mtsads_1.3.5-release.aar", "size": "251.78KB", "modified_time": "2025-10-10 15:30:34" }
+,
+  { "path": "release/sdk/mobsdk/mobsdk_1.4.5.gen-release.aar", "size": "299.46KB", "modified_time": "2026-11-06 19:11:31" }
+,
+  { "path": "release/sdk/mobsdk/mobsdk_1.4.5-release.aar", "size": "295.36KB", "modified_time": "2026-11-06 19:14:01" }
 ,
   { "path": "release/sdk/mobsdk/mobsdk_1.4.4.gen-release.aar", "size": "299.46KB", "modified_time": "2026-11-06 10:42:16" }
 ,
@@ -191,6 +215,10 @@
 ,
   { "path": "release/sdk/mobads/mobads_1.3.4-release.aar", "size": "249.58KB", "modified_time": "2025-08-08 19:35:14" }
 ,
+  { "path": "release/sdk/mixads/mixads_1.4.5.gen-release.aar", "size": "299.30KB", "modified_time": "2026-11-06 19:11:29" }
+,
+  { "path": "release/sdk/mixads/mixads_1.4.5-release.aar", "size": "295.18KB", "modified_time": "2026-11-06 19:13:59" }
+,
   { "path": "release/sdk/mixads/mixads_1.4.4.gen-release.aar", "size": "299.30KB", "modified_time": "2026-11-06 10:42:14" }
 ,
   { "path": "release/sdk/mixads/mixads_1.4.4-release.aar", "size": "295.19KB", "modified_time": "2026-11-06 10:39:49" }
@@ -222,6 +250,10 @@
   { "path": "release/sdk/mixads/mixads_1.3.7-release.aar", "size": "260.46KB", "modified_time": "2026-04-13 10:35:50" }
 ,
   { "path": "release/sdk/mixads/mixads_1.3.6-release.aar", "size": "253.32KB", "modified_time": "2026-03-13 11:06:48" }
+,
+  { "path": "release/sdk/luxads/luxads_1.4.5.gen-release.aar", "size": "299.69KB", "modified_time": "2026-11-06 19:11:26" }
+,
+  { "path": "release/sdk/luxads/luxads_1.4.5-release.aar", "size": "295.36KB", "modified_time": "2026-11-06 19:13:57" }
 ,
   { "path": "release/sdk/luxads/luxads_1.4.4.gen-release.aar", "size": "299.68KB", "modified_time": "2026-11-06 10:42:11" }
 ,
@@ -256,6 +288,10 @@
   { "path": "release/sdk/luxads/luxads_1.3.6-release.aar", "size": "253.32KB", "modified_time": "2026-03-13 11:06:45" }
 ,
   { "path": "release/sdk/luxads/luxads_1.3.5-release.aar", "size": "244.89KB", "modified_time": "2025-11-12 12:22:44" }
+,
+  { "path": "release/sdk/blueads/blueads_1.4.5.gen-release.aar", "size": "299.43KB", "modified_time": "2026-11-06 19:11:24" }
+,
+  { "path": "release/sdk/blueads/blueads_1.4.5-release.aar", "size": "295.43KB", "modified_time": "2026-11-06 19:13:54" }
 ,
   { "path": "release/sdk/blueads/blueads_1.4.4.gen-release.aar", "size": "299.42KB", "modified_time": "2026-11-06 10:42:07" }
 ,
@@ -295,6 +331,10 @@
 ,
   { "path": "release/sdk/argads/argads_1.3.4-release.aar", "size": "249.75KB", "modified_time": "2025-08-08 19:35:08" }
 ,
+  { "path": "release/sdk/abtads/abtads_1.4.5.gen-release.aar", "size": "299.44KB", "modified_time": "2026-11-06 19:11:21" }
+,
+  { "path": "release/sdk/abtads/abtads_1.4.5-release.aar", "size": "295.36KB", "modified_time": "2026-11-06 19:13:52" }
+,
   { "path": "release/sdk/abtads/abtads_1.4.4.gen-release.aar", "size": "299.44KB", "modified_time": "2026-11-06 10:42:04" }
 ,
   { "path": "release/sdk/abtads/abtads_1.4.4-release.aar", "size": "295.36KB", "modified_time": "2026-11-06 10:39:41" }
@@ -327,5 +367,5 @@
 ,
   { "path": "release/sdk/abtads/abtads_1.3.6-release.aar", "size": "253.49KB", "modified_time": "2026-03-13 11:06:41" }
 ,
-  { "path": "release/logs/commit_message.log", "size": "4.88KB", "modified_time": "2026-11-06 10:44:14" }
+  { "path": "release/logs/commit_message.log", "size": "4.92KB", "modified_time": "2026-11-06 19:15:20" }
 ]
