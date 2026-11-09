@@ -34,9 +34,9 @@ def getUserSelectNetwork() {
     return null
 }
 
-boolean hasLibsInDir(String dirPath, List<String> extensions = ['.aar', '.jar']) {
-    // 统一基于根目录解析
-    def dir = new File(rootProject.projectDir, dirPath)
+boolean hasLibsInDir(String dirName, List<String> extensions = ['.aar', '.jar']) {
+    // 统一基于根目录下的 libs/ 解析
+    def dir = new File(rootProject.projectDir, "libs/$dirName")
     if (!dir.exists() || !dir.isDirectory()) {
         return false
     }
@@ -107,7 +107,7 @@ dependencies {
         implementation 'androidx.appcompat:appcompat:1.3.0-alpha02'
         //TradPlus
         if (hasLibsInDir(TRADPLUS)) {
-            implementation fileTree(include: ['*.jar', '*.aar'], dir: rootProject.file(TRADPLUS))
+            implementation fileTree(include: ['*.jar', '*.aar'], dir: rootProject.file("libs/$TRADPLUS"))
         } else {
             implementation 'com.tradplusad:tradplus:16.10.0.2'
         }
