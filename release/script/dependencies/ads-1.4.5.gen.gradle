@@ -34,6 +34,18 @@ def getUserSelectNetwork() {
     return null
 }
 
+boolean hasLibsInDir(String dirPath, List<String> extensions = ['.aar', '.jar']) {
+    // 统一基于根目录解析
+    def dir = new File(rootProject.projectDir, dirPath)
+    if (!dir.exists() || !dir.isDirectory()) {
+        return false
+    }
+    def files = dir.listFiles()
+    return files != null && files.any { f ->
+        f.isFile() && extensions.any { ext -> f.name.endsWith(ext) }
+    }
+}
+
 try {
     def userSelectNetwork = getUserSelectNetwork()
     if (userSelectNetwork != null && !userSelectNetwork.isEmpty()) {
@@ -94,7 +106,11 @@ dependencies {
         implementation 'androidx.legacy:legacy-support-v4:1.0.0'
         implementation 'androidx.appcompat:appcompat:1.3.0-alpha02'
         //TradPlus
-        implementation 'com.tradplusad:tradplus:16.10.0.2'
+        if (hasLibsInDir(TRADPLUS)) {
+            implementation fileTree(include: ['*.jar', '*.aar'], dir: rootProject.file(TRADPLUS))
+        } else {
+            implementation 'com.tradplusad:tradplus:16.10.0.2'
+        }
         // tradplus adx
         // adx的广告源adapter，新版本打包平台会默认带上
         implementation 'com.tradplusad:tp_exchange:40.16.10.0.2'
