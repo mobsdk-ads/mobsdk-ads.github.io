@@ -2158,9 +2158,10 @@ def parseAabFileInfo(flavorName, aabFile) {
         if (normalized.length() % 2 != 0) {
             throw new IllegalArgumentException("invalid hex length: " + normalized.length())
         }
-        byte[] result = new byte[normalized.length() / 2]
+        // 整数除法避免 Groovy 将数组下标计算为 BigDecimal，兼容新旧 Gradle。
+        byte[] result = new byte[normalized.length().intdiv(2)]
         for (int i = 0; i < normalized.length(); i += 2) {
-            result[i / 2] = (byte) Integer.parseInt(normalized.substring(i, i + 2), 16)
+            result[i.intdiv(2)] = (byte) Integer.parseInt(normalized.substring(i, i + 2), 16)
         }
         return result
     }
@@ -2373,9 +2374,10 @@ def parseApkFileInfo(flavorName, apkFile) {
         if (normalized.length() % 2 != 0) {
             throw new IllegalArgumentException("invalid hex length: " + normalized.length())
         }
-        byte[] result = new byte[normalized.length() / 2]
+        // 整数除法避免 Groovy 将数组下标计算为 BigDecimal，兼容新旧 Gradle。
+        byte[] result = new byte[normalized.length().intdiv(2)]
         for (int i = 0; i < normalized.length(); i += 2) {
-            result[i / 2] = (byte) Integer.parseInt(normalized.substring(i, i + 2), 16)
+            result[i.intdiv(2)] = (byte) Integer.parseInt(normalized.substring(i, i + 2), 16)
         }
         return result
     }
