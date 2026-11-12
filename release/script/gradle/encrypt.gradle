@@ -14,6 +14,14 @@ import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
+
+// ExecOperations 从 Gradle 6.0 起可用，同时兼容 Gradle 9 移除 Project.exec 后的执行方式。
+abstract class EncryptExecServices {
+    @Inject
+    abstract ExecOperations getExecOperations()
+}
 
 /** // 脚本中使用的配置信息
 ext {
@@ -1402,11 +1410,12 @@ def verifyBundleTool(flavorName, bundleToolPath) {
         return false
     }
     def output = new ByteArrayOutputStream()
-    def result = exec {
-        commandLine "java", "-jar", bundleToolFile.absolutePath, "version"
-        standardOutput = output
-        errorOutput = output
-        ignoreExitValue true
+    def execServices = project.objects.newInstance(EncryptExecServices)
+    def result = execServices.execOperations.exec { spec ->
+        spec.commandLine("java", "-jar", bundleToolFile.absolutePath, "version")
+        spec.standardOutput = output
+        spec.errorOutput = output
+        spec.ignoreExitValue = true
     }
     def resultText = output.toString("UTF-8").trim()
     if (result.exitValue == 0 && resultText) {
